@@ -14,7 +14,6 @@ ensure_family_paths()
 import EAR
 import SPEAK
 import TONE
-# import PHONEMES, OCR, etc. as needed
 
 logger = logging.getLogger(__name__)
 
@@ -32,14 +31,14 @@ class AudioStreamProcessor:
     async def process_audio_chunk(self, audio_data: bytes, sample_rate: int = 16000) -> AsyncGenerator[dict, None]:
         self.buffer.extend(audio_data)
         audio_np = np.frombuffer(self.buffer, dtype=np.int16).astype(np.float32) / 32768.0
-        
+
         if len(audio_np) / sample_rate < 0.6:
             return
-        
+
         segments, info = whisper_model.transcribe(
             audio_np, beam_size=5, vad_filter=True, word_timestamps=True, language=None
         )
-        
+
         for segment in segments:
             transcript = {
                 "type": "transcript",
@@ -51,7 +50,7 @@ class AudioStreamProcessor:
             }
             yield transcript
             latest_transcript.update({"text": transcript["text"], "timestamp": transcript["end"]})
-        
+
         keep_samples = int(self.sample_rate * 1.5)
         self.buffer = self.buffer[-keep_samples * 2:]
 
@@ -66,10 +65,10 @@ async def websocket_audio(websocket: WebSocket):
     await websocket.accept()
     active_connections["mic"] += 1
     processor = AudioStreamProcessor()
-    
+
     logger.info(f"🎙️ MIC CONNECTED — Total: {active_connections['mic']}")
     await websocket.send_json({"type": "status", "message": "Christman Live Bridge ACTIVE — All agents can hear you."})
-    
+
     try:
         while True:
             data = await websocket.receive_json()
@@ -77,7 +76,7 @@ async def websocket_audio(websocket: WebSocket):
                 audio_b64 = data.get("audio")
                 sample_rate = data.get("sample_rate", 16000)
                 audio_bytes = base64.b64decode(audio_b64)
-                
+
                 async for transcript in processor.process_audio_chunk(audio_bytes, sample_rate):
                     await websocket.send_json(transcript)
     except WebSocketDisconnect:
@@ -122,6 +121,10 @@ async def capture_voice(duration: float = 6.0) -> str:
     """Capture live audio using your EAR."""
     path = EAR.listen(max_duration=duration)
     return f"Voice captured: {path}"
+
+@app.get("/latest")
+async def get_latest_http():
+    return latest_transcript
 
 @app.get("/health")
 async def health():

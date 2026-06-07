@@ -3,7 +3,7 @@ import base64
 import json
 import queue
 import threading
-import websockets
+from websockets.asyncio.client import connect as ws_connect
 import sounddevice as sd
 import numpy as np
 
@@ -22,7 +22,7 @@ async def sender(ws):
             break
 
 async def continuous_stream():
-    async with websockets.connect("ws://localhost:8765/ws/audio") as ws:
+    async with ws_connect("ws://localhost:8765/ws/audio") as ws:
         print("🎙️ Always-on microphone connected - Speak naturally")
         
         # Start sender task

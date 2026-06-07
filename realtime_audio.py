@@ -5,7 +5,6 @@ import logging
 from pathlib import Path
 from typing import AsyncGenerator
 
-import av
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from faster_whisper import WhisperModel
 import numpy as np
