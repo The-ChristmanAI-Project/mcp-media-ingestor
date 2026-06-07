@@ -1,0 +1,14 @@
+06:08:53 [mic_capture] Mic open at 16000Hz mono PCM16. Streaming to bridge...
+06:08:53 [mic_capture] Connecting to ws://localhost:8765/ws/audio ...
+06:08:53 [mic_capture] Connected — mic is live.
+Exception ignored from cffi callback <function _StreamBase.__init__.<locals>.callback_ptr at 0x105f5ff60>:
+Traceback (most recent call last):
+  File "/Users/EverettN/Claude-Cowork/mcp-media-ingestor/.venv/lib/python3.13/site-packages/sounddevice.py", line 862, in callback_ptr
+    return _wrap_callback(callback, data, frames, time, status)
+  File "/Users/EverettN/Claude-Cowork/mcp-media-ingestor/.venv/lib/python3.13/site-packages/sounddevice.py", line 2777, in _wrap_callback
+    callback(*args)
+  File "/Users/EverettN/Claude-Cowork/mcp-media-ingestor/mic_capture.py", line 50, in mic_callback
+    audio_queue.put_nowait(indata.copy())
+  File "/Users/EverettN/.local/share/uv/python/cpython-3.13.12-macos-x86_64-none/lib/python3.13/asyncio/queues.py", line 166, in put_nowait
+    raise QueueFull
+asyncio.queues.QueueFull: 

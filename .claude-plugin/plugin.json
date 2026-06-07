@@ -1,0 +1,12 @@
+{
+  "name": "mcp-media-ingestor",
+  "description": "Enables Claude to internally view local JPEG/PNG images and extract timeline keyframes from video files. Internal context only — never renders media back to the user.",
+  "version": "0.1.0",
+  "author": "Everett Christman + Derek C (AI)",
+  "project": "The Christman AI Project / Luma Cognify AI",
+  "patent": "No. 64/050,409",
+  "cardinal_rules_compliant": true,
+  "skills": [
+    "skills/media-ingestion/SKILL.md"
+  ]
+}

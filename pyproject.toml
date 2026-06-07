@@ -1,0 +1,18 @@
+[project]
+name = "mcp-media-ingestor"
+version = "0.2.0"
+description = "MCP server giving Claude internal vision of local images, video frames, and audio transcripts"
+requires-python = ">=3.11"
+dependencies = [
+    "fastmcp>=2.0.0",
+    "pillow>=12.0.0",
+    "faster-whisper==1.2.1",
+    "onnxruntime==1.23.2",
+    "ctranslate2>=4.0.0",
+    "av>=17.0.0",
+    "fastapi>=0.115.0",
+    "uvicorn>=0.30.0",
+    "websockets>=13.0",
+    "numpy>=1.26.0",
+    "sounddevice>=0.5.5",
+]
