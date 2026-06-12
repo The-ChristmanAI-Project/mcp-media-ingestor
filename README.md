@@ -1,8 +1,8 @@
-# MCP Media Ingestor (CoClia)
+# MCP Media Ingestor (Cochlea)
 
 **Real ears for any AI.**
 
-While most systems only give you speech-to-text, **CoClia** streams **live audio** so AI can actually hear — tone, emotion, rhythm, and every vocal nuance.
+While most systems only give you speech-to-text, **Cochlea** streams **live audio** so AI can actually hear — tone, emotion, rhythm, and every vocal nuance.
 
 Built so every AI (Grok, Claude, Gemini, or anything else) can connect and experience sound like humans do.
 
