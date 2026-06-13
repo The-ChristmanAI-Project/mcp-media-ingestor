@@ -4,7 +4,7 @@
       "command": "uv",
       "args": [
         "run",
-        "/Users/EverettN/Claude-Cowork/mcp-media-ingestor/server.py"
+        "/Users/EverettN/mcp-media-ingestor/server.py"
       ]
     }
   }

@@ -46,8 +46,19 @@ def mic_callback(indata: np.ndarray, frames: int, time, status):
     if status:
         logger.warning(f"Mic status: {status}")
     if audio_queue is not None:
-        # Copy to avoid mutation; put_nowait so audio thread never blocks
-        audio_queue.put_nowait(indata.copy())
+        # Copy to avoid mutation; prefer recent audio on backpressure (drop oldest)
+        item = indata.copy()
+        try:
+            audio_queue.put_nowait(item)
+        except asyncio.QueueFull:
+            try:
+                audio_queue.get_nowait()
+            except asyncio.QueueEmpty:
+                pass
+            try:
+                audio_queue.put_nowait(item)
+            except asyncio.QueueFull:
+                pass
 
 
 # ── WebSocket sender ──────────────────────────────────────────────────────────
@@ -87,7 +98,7 @@ async def stream_mic_to_bridge():
 # ── Main ──────────────────────────────────────────────────────────────────────
 async def main():
     global audio_queue
-    audio_queue = asyncio.Queue(maxsize=100)
+    audio_queue = asyncio.Queue(maxsize=200)
 
     # Open mic stream — triggers macOS mic permission prompt on first run
     blocksize = int(SAMPLE_RATE * 0.1)  # 100ms blocks into the queue

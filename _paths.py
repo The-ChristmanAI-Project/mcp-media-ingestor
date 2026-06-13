@@ -12,6 +12,8 @@ FAMILY_ROOTS = [
 ]
 
 def ensure_family_paths():
-    for root in FAMILY_ROOTS:
+    here = os.path.dirname(os.path.abspath(__file__))
+    cwd = os.getcwd()
+    for root in [here, cwd] + FAMILY_ROOTS:
         if os.path.isdir(root) and root not in sys.path:
             sys.path.insert(0, root)
