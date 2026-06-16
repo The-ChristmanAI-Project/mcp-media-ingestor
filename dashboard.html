@@ -631,6 +631,8 @@
       const vs = document.getElementById('stat-vision');
       if (vs) vs.textContent = visionCount;
       document.getElementById('vision-dot').className = visionCount > 0 ? 'dot alive' : 'dot dead';
+      const hermesCount = d.hermes_clients || 0;
+      document.getElementById('hermes-dot-status').className = hermesCount > 0 ? 'dot alive' : 'dot dead';
       const rileyOn = d.riley_connected;
       document.getElementById('riley-dot').className = rileyOn ? 'dot alive' : 'dot warn';
       document.getElementById('stat-riley-conn').textContent = rileyOn ? '1' : '0';
