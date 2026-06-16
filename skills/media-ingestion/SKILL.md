@@ -44,3 +44,11 @@ Reconstruct the visual timeline. Describe the sequence of events in clean text.
 - Rule 6:  If ffmpeg is missing or a file is corrupt, the tool fails loud. Report the exact error to the user.
 - Rule 10: All temp files are cleaned automatically. No residue left on disk.
 - Rule 13: Never describe content you did not actually ingest. No hallucinated visuals.
+
+## Live / Total Vision (bridge extension)
+When the Full Sensory Bridge (main.py + vision_capture.py client) is running:
+- Call `get_current_view()` (available in both the pure MCP server and the mounted bridge MCP).
+- This returns the latest live camera or screen frame as ImageContent.
+- Use exactly like read_image: study internally, describe findings in text only.
+- Start the feeder with: `python vision_capture.py` (webcam) or `SOURCE=screen python vision_capture.py`.
+- The bridge also exposes /vision/latest and /ws/video for other consumers (dashboard, Riley tunnel awareness, etc.).
