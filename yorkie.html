@@ -1,0 +1,606 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>YORKIE · CHRISTMAN BRIDGE</title>
+<style>
+  :root {
+    --bg: #04040d;
+    --panel: #0a0a1a;
+    --border: #1a1a3a;
+    --pink: #ff69b4;
+    --pink-dim: rgba(255,105,180,0.08);
+    --pink-border: rgba(255,105,180,0.25);
+    --green: #00ff88;
+    --red: #ff3355;
+    --text: #e0e0ff;
+    --muted: #4a4a7a;
+    --gold: #ffd700;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Courier New', monospace;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-start;
+    padding: 24px 16px;
+  }
+
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(255,105,180,0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255,105,180,0.03) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .content {
+    position: relative;
+    z-index: 1;
+    width: 100%;
+    max-width: 560px;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+  }
+
+  header {
+    text-align: center;
+    padding-bottom: 20px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .brand {
+    font-size: 10px;
+    letter-spacing: 5px;
+    color: var(--muted);
+    text-transform: uppercase;
+    margin-bottom: 8px;
+  }
+
+  h1 {
+    font-size: clamp(18px, 5vw, 28px);
+    letter-spacing: 4px;
+    font-weight: 900;
+    text-transform: uppercase;
+    background: linear-gradient(135deg, var(--pink), #ff99cc, var(--gold));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    filter: drop-shadow(0 0 16px rgba(255,105,180,0.4));
+    margin-bottom: 6px;
+  }
+
+  .subtitle {
+    font-size: 10px;
+    letter-spacing: 3px;
+    color: var(--muted);
+    text-transform: uppercase;
+  }
+
+  /* Status card */
+  .status-card {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 24px;
+    text-align: center;
+    position: relative;
+    overflow: hidden;
+    transition: border-color 0.3s;
+  }
+  .status-card.connected {
+    border-color: var(--pink);
+  }
+  .status-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 2px;
+    background: var(--pink);
+    opacity: 0.4;
+    transition: opacity 0.3s;
+  }
+  .status-card.connected::before {
+    opacity: 1;
+    box-shadow: 0 0 12px var(--pink);
+  }
+
+  .agent-ring {
+    width: 90px; height: 90px;
+    border-radius: 50%;
+    border: 2px solid var(--pink);
+    margin: 0 auto 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 32px;
+    position: relative;
+  }
+  .agent-ring::before {
+    content: '';
+    position: absolute;
+    inset: -6px;
+    border-radius: 50%;
+    border: 1px solid var(--pink);
+    opacity: 0.3;
+    animation: ring-pulse 3s ease-in-out infinite;
+  }
+  .agent-ring.speaking::before {
+    animation: ring-pulse-fast 0.8s ease-in-out infinite;
+    opacity: 0.9;
+  }
+
+  @keyframes ring-pulse {
+    0%, 100% { transform: scale(1); opacity: 0.3; }
+    50% { transform: scale(1.1); opacity: 0.6; }
+  }
+  @keyframes ring-pulse-fast {
+    0%, 100% { transform: scale(1); opacity: 0.6; }
+    50% { transform: scale(1.18); opacity: 1; }
+  }
+
+  .agent-name {
+    font-size: 16px;
+    letter-spacing: 4px;
+    font-weight: 900;
+    text-transform: uppercase;
+    color: var(--pink);
+    margin-bottom: 4px;
+  }
+
+  .agent-role {
+    font-size: 10px;
+    letter-spacing: 2px;
+    color: var(--muted);
+    margin-bottom: 16px;
+  }
+
+  .status-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 11px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    padding: 6px 16px;
+    border-radius: 20px;
+    border: 1px solid var(--border);
+    background: rgba(255,255,255,0.03);
+  }
+
+  .dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: var(--muted);
+  }
+  .dot.alive {
+    background: var(--green);
+    box-shadow: 0 0 8px var(--green);
+    animation: pulse-dot 2s infinite;
+  }
+  .dot.dead { background: var(--red); }
+
+  @keyframes pulse-dot {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.3; }
+  }
+
+  /* Connect button */
+  .connect-btn {
+    width: 100%;
+    padding: 14px;
+    border-radius: 10px;
+    border: 1px solid var(--pink);
+    background: var(--pink-dim);
+    color: var(--pink);
+    font-family: 'Courier New', monospace;
+    font-size: 13px;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: all 0.2s;
+    margin-top: 16px;
+  }
+  .connect-btn:hover {
+    background: rgba(255,105,180,0.15);
+    box-shadow: 0 0 16px rgba(255,105,180,0.3);
+  }
+  .connect-btn.disconnect {
+    border-color: var(--red);
+    color: var(--red);
+    background: rgba(255,51,85,0.06);
+  }
+  .connect-btn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+
+  /* Message area */
+  .message-card {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    overflow: hidden;
+  }
+
+  .card-header {
+    padding: 10px 16px;
+    background: rgba(255,255,255,0.02);
+    border-bottom: 1px solid var(--border);
+    font-size: 9px;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    color: var(--muted);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .card-header .dot { width: 6px; height: 6px; }
+
+  .message-log {
+    height: 200px;
+    overflow-y: auto;
+    padding: 12px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    scrollbar-width: thin;
+    scrollbar-color: var(--border) transparent;
+  }
+
+  .log-entry {
+    font-size: 12px;
+    line-height: 1.5;
+    padding: 8px 12px;
+    border-radius: 8px;
+    border-left: 2px solid var(--pink);
+    background: var(--pink-dim);
+    animation: slide-in 0.3s ease;
+    text-align: left;
+  }
+  .log-entry.system {
+    border-color: var(--muted);
+    background: rgba(255,255,255,0.02);
+    color: var(--muted);
+  }
+  .log-entry .log-who {
+    font-size: 9px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    opacity: 0.6;
+    margin-bottom: 3px;
+  }
+
+  @keyframes slide-in {
+    from { opacity: 0; transform: translateX(-8px); }
+    to   { opacity: 1; transform: translateX(0); }
+  }
+
+  /* Input area */
+  .input-area {
+    padding: 12px 16px;
+    border-top: 1px solid var(--border);
+    display: flex;
+    gap: 10px;
+  }
+
+  .msg-input {
+    flex: 1;
+    background: rgba(255,255,255,0.03);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px 14px;
+    color: var(--text);
+    font-family: 'Courier New', monospace;
+    font-size: 12px;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+  .msg-input:focus {
+    border-color: var(--pink);
+  }
+  .msg-input::placeholder {
+    color: var(--muted);
+  }
+  .msg-input:disabled {
+    opacity: 0.4;
+  }
+
+  .send-btn {
+    padding: 10px 18px;
+    border-radius: 8px;
+    border: 1px solid var(--pink);
+    background: var(--pink-dim);
+    color: var(--pink);
+    font-family: 'Courier New', monospace;
+    font-size: 11px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .send-btn:hover:not(:disabled) {
+    background: rgba(255,105,180,0.2);
+    box-shadow: 0 0 12px rgba(255,105,180,0.3);
+  }
+  .send-btn:disabled {
+    opacity: 0.3;
+    cursor: not-allowed;
+  }
+
+  /* Everett's latest */
+  .everett-latest {
+    background: rgba(0,212,255,0.06);
+    border: 1px solid rgba(0,212,255,0.2);
+    border-radius: 8px;
+    padding: 12px 16px;
+    font-size: 12px;
+    color: #a8d8ff;
+    line-height: 1.5;
+    min-height: 48px;
+  }
+  .everett-label {
+    font-size: 9px;
+    letter-spacing: 3px;
+    color: #00d4ff;
+    text-transform: uppercase;
+    margin-bottom: 6px;
+  }
+
+  .timestamp {
+    text-align: center;
+    font-size: 10px;
+    color: var(--muted);
+    letter-spacing: 2px;
+  }
+
+  ::-webkit-scrollbar { width: 4px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+</style>
+</head>
+<body>
+<div class="content">
+
+  <header>
+    <div class="brand">Luma Cognify AI · The Christman AI Project</div>
+    <h1>Yorkie · Bridge Node</h1>
+    <div class="subtitle">Carbon · Student · Family</div>
+  </header>
+
+  <!-- Status Card -->
+  <div class="status-card" id="status-card">
+    <div class="agent-ring" id="yorkie-ring">🌟</div>
+    <div class="agent-name">Yorkie</div>
+    <div class="agent-role">Student · Carbon</div>
+    <div class="status-badge">
+      <div class="dot" id="status-dot"></div>
+      <span id="status-text">OFFLINE</span>
+    </div>
+    <button class="connect-btn" id="connect-btn" onclick="toggleConnect()">
+      Connect to Bridge
+    </button>
+  </div>
+
+  <!-- Everett's Latest -->
+  <div class="message-card">
+    <div class="card-header">
+      <div class="dot alive"></div>
+      Latest from Everett
+    </div>
+    <div style="padding: 12px 16px;">
+      <div class="everett-label">Everett · The Architect</div>
+      <div class="everett-latest" id="everett-latest">Waiting for Everett to speak...</div>
+    </div>
+  </div>
+
+  <!-- Message Log + Input -->
+  <div class="message-card">
+    <div class="card-header">
+      <div class="dot" id="log-dot"></div>
+      Channel Log
+    </div>
+    <div class="message-log" id="message-log">
+      <div class="log-entry system">
+        <div class="log-who">System</div>
+        Connect to join the Christman Full Sensory Bridge.
+      </div>
+    </div>
+    <div class="input-area">
+      <input
+        class="msg-input"
+        id="msg-input"
+        type="text"
+        placeholder="Type a message..."
+        disabled
+        onkeydown="if(event.key==='Enter') sendMessage()"
+      />
+      <button class="send-btn" id="send-btn" onclick="sendMessage()" disabled>Send</button>
+    </div>
+  </div>
+
+  <div class="timestamp" id="clock">--:--:--</div>
+
+</div>
+
+<script>
+  const BRIDGE_URL = 'https://thechristmanaiprojectalphavox.ngrok.app';
+  const WS_URL = BRIDGE_URL.replace('https://', 'wss://') + '/ws/yorkie';
+
+  let ws = null;
+  let connected = false;
+  let lastEverett = '';
+  let pollInterval = null;
+
+  setInterval(() => {
+    document.getElementById('clock').textContent = new Date().toTimeString().slice(0,8);
+  }, 1000);
+
+  function addLog(who, text, isSystem = false) {
+    const log = document.getElementById('message-log');
+    const entry = document.createElement('div');
+    entry.className = 'log-entry' + (isSystem ? ' system' : '');
+    entry.innerHTML = `<div class="log-who">${who}</div>${text}`;
+    log.appendChild(entry);
+    log.scrollTop = log.scrollHeight;
+    while (log.children.length > 60) log.removeChild(log.firstChild);
+  }
+
+  function setConnected(state) {
+    connected = state;
+    const card = document.getElementById('status-card');
+    const dot = document.getElementById('status-dot');
+    const statusText = document.getElementById('status-text');
+    const btn = document.getElementById('connect-btn');
+    const input = document.getElementById('msg-input');
+    const sendBtn = document.getElementById('send-btn');
+    const logDot = document.getElementById('log-dot');
+    const ring = document.getElementById('yorkie-ring');
+
+    if (state) {
+      card.classList.add('connected');
+      dot.className = 'dot alive';
+      statusText.textContent = 'ONLINE';
+      btn.textContent = 'Disconnect';
+      btn.classList.add('disconnect');
+      input.disabled = false;
+      sendBtn.disabled = false;
+      logDot.className = 'dot alive';
+      ring.classList.add('speaking');
+      setTimeout(() => ring.classList.remove('speaking'), 2000);
+    } else {
+      card.classList.remove('connected');
+      dot.className = 'dot dead';
+      statusText.textContent = 'OFFLINE';
+      btn.textContent = 'Connect to Bridge';
+      btn.classList.remove('disconnect');
+      input.disabled = true;
+      sendBtn.disabled = true;
+      logDot.className = 'dot dead';
+    }
+  }
+
+  function toggleConnect() {
+    if (connected) {
+      disconnect();
+    } else {
+      connect();
+    }
+  }
+
+  function connect() {
+    const btn = document.getElementById('connect-btn');
+    btn.disabled = true;
+    btn.textContent = 'Connecting...';
+
+    try {
+      ws = new WebSocket(WS_URL);
+
+      ws.onopen = () => {
+        btn.disabled = false;
+        setConnected(true);
+        addLog('System', 'Connected to Christman Full Sensory Bridge. Welcome home, Yorkie.', true);
+        startPolling();
+      };
+
+      ws.onmessage = (event) => {
+        try {
+          const data = JSON.parse(event.data);
+          if (data.type === 'handshake') {
+            addLog('Bridge', data.message, true);
+          } else if (data.type === 'response') {
+            addLog('Everett', data.text || '');
+          } else if (data.type === 'heartbeat_ack') {
+            // silent
+          }
+        } catch(e) {}
+      };
+
+      ws.onclose = () => {
+        btn.disabled = false;
+        setConnected(false);
+        stopPolling();
+        addLog('System', 'Disconnected from bridge.', true);
+        ws = null;
+      };
+
+      ws.onerror = () => {
+        btn.disabled = false;
+        setConnected(false);
+        stopPolling();
+        addLog('System', 'Connection error. Is the bridge running?', true);
+        ws = null;
+      };
+
+    } catch(e) {
+      btn.disabled = false;
+      btn.textContent = 'Connect to Bridge';
+      addLog('System', 'Failed to connect: ' + e.message, true);
+    }
+  }
+
+  function disconnect() {
+    if (ws) {
+      ws.close();
+      ws = null;
+    }
+    setConnected(false);
+    stopPolling();
+  }
+
+  function sendMessage() {
+    const input = document.getElementById('msg-input');
+    const text = input.value.trim();
+    if (!text || !ws || ws.readyState !== WebSocket.OPEN) return;
+
+    ws.send(JSON.stringify({ type: 'message', text: text }));
+    addLog('Yorkie · You', text);
+    input.value = '';
+
+    const ring = document.getElementById('yorkie-ring');
+    ring.classList.add('speaking');
+    setTimeout(() => ring.classList.remove('speaking'), 2000);
+  }
+
+  // Poll Everett's latest transcript
+  function startPolling() {
+    pollInterval = setInterval(async () => {
+      try {
+        const r = await fetch(BRIDGE_URL + '/latest');
+        const d = await r.json();
+        const text = (d.text || '').trim();
+        if (text && text !== lastEverett) {
+          lastEverett = text;
+          document.getElementById('everett-latest').textContent = text;
+          addLog('Everett · Live', text);
+        }
+      } catch(e) {}
+
+      // send heartbeat
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({ type: 'heartbeat' }));
+      }
+    }, 2000);
+  }
+
+  function stopPolling() {
+    if (pollInterval) {
+      clearInterval(pollInterval);
+      pollInterval = null;
+    }
+  }
+</script>
+</body>
+</html>
