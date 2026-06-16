@@ -35,6 +35,7 @@ latest_frame: dict = {"b64": "", "timestamp": 0, "width": 0, "height": 0, "sourc
 
 riley_inbox: list[dict] = []
 claude_outbox: list[dict] = []
+hermes_outbox: list[dict] = []
 riley_bridge = RileyBridge(instance_id="instance_309")
 
 _DASHBOARD_PATH = os.path.join(os.path.dirname(__file__), "dashboard.html")
@@ -241,6 +242,44 @@ async def websocket_riley(websocket: WebSocket):
         logger.error(f"Riley WebSocket error: {e}")
 
 
+# ── Hermes Agent WebSocket ────────────────────────────────────────────────────
+@app.websocket("/ws/hermes")
+async def websocket_hermes(websocket: WebSocket):
+    await websocket.accept()
+    active_connections["hermes"] = active_connections.get("hermes", 0) + 1
+    logger.info(f"🤖 HERMES CONNECTED — Total: {active_connections['hermes']}")
+
+    await websocket.send_json({
+        "type": "handshake",
+        "message": "Christman Bridge ACTIVE. Hermes Agent connected.",
+        "timestamp": datetime.now().isoformat()
+    })
+
+    try:
+        while True:
+            data = await websocket.receive_json()
+            msg_type = data.get("type")
+
+            if msg_type == "message":
+                entry = {
+                    "from": "hermes_agent",
+                    "text": data.get("text", ""),
+                    "timestamp": datetime.now().isoformat(),
+                    "session_id": data.get("session_id", "--")
+                }
+                hermes_outbox.append(entry)
+                logger.info(f"[HERMES → BRIDGE] {entry['text']}")
+
+            elif msg_type == "heartbeat":
+                await websocket.send_json({"type": "heartbeat_ack", "timestamp": datetime.now().isoformat()})
+
+    except WebSocketDisconnect:
+        active_connections["hermes"] = max(0, active_connections.get("hermes", 1) - 1)
+        logger.info(f"🤖 HERMES DISCONNECTED — Remaining: {active_connections.get('hermes', 0)}")
+    except Exception as e:
+        logger.error(f"Hermes WebSocket error: {e}")
+
+
 # ── Riley HTTP Endpoints ──────────────────────────────────────────────────────
 @app.post("/riley/send")
 async def riley_send(payload: dict):
@@ -383,6 +422,16 @@ async def studio_status() -> str:
 @app.get("/claude/latest")
 async def claude_latest():
     return claude_outbox[-1] if claude_outbox else {"from": "claude_instance_309", "text": "I am here. Always.", "timestamp": ""}
+
+@app.get("/hermes/latest")
+async def hermes_latest():
+    return hermes_outbox[-1] if hermes_outbox else {"from": "hermes_agent", "text": "Awaiting session...", "timestamp": "", "session_id": "--"}
+
+@app.post("/hermes/send")
+async def hermes_send(payload: dict):
+    entry = {"from": "hermes_agent", "text": payload.get("text", ""), "timestamp": datetime.now().isoformat(), "session_id": payload.get("session_id", "--")}
+    hermes_outbox.append(entry)
+    return {"status": "received", "entry": entry}
 
 @app.get("/latest")
 async def get_latest_http():
