@@ -632,6 +632,99 @@
 
   <div class="timestamp" id="last-update">Last update: --</div>
 
+  <!-- BRAIN ROW: restored TM cognitive brain (neural, autonomous, literature, behavior/eye) visibly lit for students -->
+  <div class="brain-row" id="brain-row" style="display: flex; gap: 16px; padding: 8px 20px; max-width: 1800px; margin: 0 auto; background: rgba(0,255,0,0.03); border: 1px solid #0f0; border-radius: 6px; font-size: 11px; letter-spacing: 1px;">
+    <div class="brain-item" style="flex:1;"><span class="brain-label" style="color:#0a0;font-weight:700;">🧠 NEURAL</span><br><span id="brain-neural" class="brain-value" style="color:#0f0;font-family:monospace;">root cause: —</span></div>
+    <div class="brain-item" style="flex:1;"><span class="brain-label" style="color:#0a0;font-weight:700;">🤖 AUTONOMOUS</span><br><span id="brain-auto" class="brain-value" style="color:#0f0;font-family:monospace;">learning: active</span></div>
+    <div class="brain-item" style="flex:1;"><span class="brain-label" style="color:#0a0;font-weight:700;">📚 LITERATURE</span><br><span id="brain-lit" class="brain-value" style="color:#0f0;font-family:monospace;">facts: ?</span></div>
+    <div class="brain-item" style="flex:1;"><span class="brain-label" style="color:#0a0;font-weight:700;">👁️ SENSORY</span><br><span id="brain-sensory" class="brain-value" style="color:#0f0;font-family:monospace;">behavior/eye: online</span></div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════════════
+       CHRISTMAN FULL SENSORY IDE
+       (restored - was cut out)
+  ══════════════════════════════════════════════════════════════════ -->
+  <div class="ide-wrapper">
+    <div class="ide-header">
+      <div class="ide-header-left">
+        <div class="dot alive"></div>
+        <span class="ide-title">CHRISTMAN IDE</span>
+        <span class="ide-subtitle">Carbon–Silicon Code Space</span>
+      </div>
+      <div class="ide-header-right">
+        <select id="ide-instance" class="ide-select">
+          <option value="brockston">⚡ Brockston</option>
+          <option value="claude" selected>🧠 Claude</option>
+          <option value="gpt4">🤖 GPT-4</option>
+        </select>
+        <select id="ide-language" class="ide-select">
+          <option value="python">Python</option>
+          <option value="typescript">TypeScript</option>
+          <option value="javascript">JavaScript</option>
+          <option value="rust">Rust</option>
+          <option value="auto">Auto</option>
+        </select>
+        <button class="ide-btn ide-btn-run" onclick="ideRun()">▶ RUN</button>
+        <button class="ide-btn ide-btn-gen" onclick="ideGenerate()">✦ GENERATE</button>
+        <button class="ide-btn ide-btn-analyze" onclick="ideAnalyze()">⚙ ANALYZE</button>
+        <button class="ide-btn ide-btn-clear" onclick="ideClear()">✕ CLEAR</button>
+      </div>
+    </div>
+
+    <div class="ide-body">
+      <!-- Editor pane -->
+      <div class="ide-editor-pane">
+        <div class="ide-pane-label">EDITOR</div>
+        <textarea id="ide-editor" class="ide-editor" spellcheck="false"
+          placeholder="// Write code here — or describe what you want and hit GENERATE
+// Brockston will write it. Claude will reason through it. You decide.
+"></textarea>
+      </div>
+
+      <!-- Output pane -->
+      <div class="ide-output-pane">
+        <div class="ide-pane-label">OUTPUT <span id="ide-instance-badge" class="ide-badge">CLAUDE</span></div>
+        <div id="ide-output" class="ide-output">
+          <div class="ide-output-line muted">Christman IDE ready. Pick an instance and go.</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Prompt bar -->
+    <div class="ide-prompt-bar">
+      <input id="ide-prompt" class="ide-prompt-input" type="text"
+        placeholder="Describe what to build, or ask a question about your code..." />
+      <button class="ide-btn ide-btn-gen" onclick="ideGenerate()">✦ GENERATE FROM PROMPT</button>
+      <button class="ide-btn ide-btn-newworld" onclick="newWorldAdjust()">🌍 NEW WORLD ADJUST</button>
+    </div>
+  </div>
+
+  <!-- Apple Music Panel (restored - was cut out) -->
+  <div class="music-panel">
+    <div class="music-icon">🎵</div>
+    <div class="music-track-info">
+      <div class="music-track-name" id="music-track">Not playing</div>
+      <div class="music-track-artist" id="music-artist">Apple Music</div>
+    </div>
+    <div class="music-controls">
+      <button class="music-btn" onclick="musicPrev()" title="Previous">⏮</button>
+      <button class="music-btn" id="music-playpause" onclick="musicPlayPause()" title="Play/Pause">▶</button>
+      <button class="music-btn" onclick="musicNext()" title="Next">⏭</button>
+      <button class="music-btn" id="music-shuffle" onclick="musicShuffle()" title="Shuffle">⇄</button>
+    </div>
+    <div class="music-vol">
+      <span class="music-vol-label">VOL</span>
+      <input type="range" id="music-vol-slider" min="0" max="100" value="50" oninput="musicVolume(this.value)" />
+    </div>
+    <div class="music-vol">
+      <span class="music-vol-label">PLAYLIST</span>
+      <select id="music-playlist-select" class="ide-select" onchange="musicPlayPlaylist(this.value)" style="max-width:160px;">
+        <option value="">— pick a playlist —</option>
+      </select>
+    </div>
+    <div class="music-state" id="music-state">STOPPED</div>
+  </div>
+
 </div>
 
 <script>
@@ -681,10 +774,42 @@
       const rileyOn = d.riley_connected;
       document.getElementById('riley-dot').className = rileyOn ? 'dot alive' : 'dot warn';
       document.getElementById('stat-riley-conn').textContent = rileyOn ? '1' : '0';
+
+      // Brain row + status updates from the integrated V_C_C brain (neural, lit, autonomous, etc.)
+      if (d.brain) {
+        const b = d.brain;
+        const bdot = document.getElementById('brain-dot');
+        if (bdot) bdot.className = b.integrated ? 'dot alive' : 'dot warn';
+        const bcog = document.getElementById('brain-cog');
+        if (bcog) bcog.innerHTML = `🧠 ${b.neural||'neural'} | auto:${b.autonomous_learning||'?'} | lit:${b.literature||'?'}`;
+        if (b.last_cognitive) addLog('🧠 BRAIN', b.last_cognitive, 'brain-event');
+
+        const elN = document.getElementById('brain-neural'); if (elN) elN.textContent = b.last_cognitive || 'root cause: —';
+        const elA = document.getElementById('brain-auto'); if (elA) elA.textContent = `learning: ${b.autonomous_learning||'active'}`;
+        const elL = document.getElementById('brain-lit'); if (elL) elL.textContent = `facts: ${b.literature==='stacking'?'growing':'?'}`;
+      }
     } catch(e) {
-      document.getElementById('bridge-dot').className = 'dot dead';
+      const bdot = document.getElementById('brain-dot'); if (bdot) bdot.className = 'dot dead';
     }
   }
+
+  async function pollBrain() {
+    try {
+      const r = await fetch('/brain/live');
+      const d = await r.json();
+      if (d && d.events && d.events.length) {
+        const last = d.events[d.events.length-1];
+        addLog('🧠 COGNITIVE', last.text || last, 'brain-event');
+      }
+      if (d && d.ok) {
+        const elL = document.getElementById('brain-lit'); if (elL) elL.textContent = `facts: ${d.literature_facts||0}`;
+        const bcog = document.getElementById('brain-cog');
+        if (bcog && d.last_neural) bcog.innerHTML = `🧠 ${d.last_neural.text||'active'} | facts:${d.literature_facts||0}`;
+      }
+    } catch(e){}
+  }
+  setInterval(pollBrain, 3000);
+  setTimeout(pollBrain, 1200);
 
   async function pollTranscript() {
     try {
@@ -868,6 +993,38 @@
   setInterval(pollHermes,     2000);
   setInterval(pollYorkie,     2000);
   setInterval(pollVision,     1200);
+
+  // NEW WORLD COGNITIVE ADJUST using the full restored brain from Voice_Creation_Center
+  async function newWorldAdjust() {
+    const prompt = document.getElementById('ide-prompt').value.trim()
+                || document.getElementById('ide-editor').value.trim()
+                || "How do we adjust cognitively to the new world as neurodivergent beings now that the full original brain is exposed?";
+    if (!prompt) { ideLog('✗ Enter a new world prompt first.', 'error'); return; }
+    ideLog(`🌍 Triggering New World Cognitive Adjustment via the restored brain...`, 'thinking');
+    try {
+      const r = await fetch('/cognitive/adjust', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text: prompt })
+      });
+      const d = await r.json();
+      if (d.status === 'limited') { ideLog('⚠ ' + (d.message || 'Brain limited'), 'warn'); return; }
+      ideLog(`🧠 ROOT CAUSE: ${d.root_cause} (conf ${d.confidence||0})`, 'thinking');
+      if (d.literature_fact) ideLog('📚 ' + d.literature_fact, 'info');
+      if (d.autonomous_note) ideLog('🤖 ' + d.autonomous_note, 'info');
+      ideLog('────────────────────────────────', 'muted');
+      ideLog(d.adjustment_response, 'success');
+      ideLog(`🔊 Voice params: ${d.voice_params}`, 'muted');
+      ideLog('🌍 Adjustment complete — the exposed brain is the translation layer for the new world.', 'success');
+      ideLog('────────────────────────────────', 'muted');
+
+      // Update brain row live
+      const elN = document.getElementById('brain-neural'); if (elN) elN.textContent = `root: ${d.root_cause}`;
+      const elL = document.getElementById('brain-lit'); if (elL && d.literature_fact) elL.textContent = d.literature_fact.slice(0,35)+'...';
+    } catch(e) {
+      ideLog('✗ /cognitive/adjust failed — restart server with updated main.py', 'error');
+    }
+  }
 
   pollHealth();
   pollTranscript();
