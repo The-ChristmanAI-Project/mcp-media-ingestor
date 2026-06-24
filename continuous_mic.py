@@ -8,8 +8,22 @@ import sounddevice as sd
 
 # Auto-detect available input device or use env override
 import os
-DEVICE_INDEX = int(os.getenv("CHRISTMAN_MIC_DEVICE", "3"))  # iMac Microphone = 3
+DEFAULT_DEVICE = int(os.getenv("CHRISTMAN_MIC_DEVICE", "5"))  # iMac Microphone = 5
 SAMPLE_RATE  = 16000
+
+def find_input_device():
+    """Find the first available input device, preferring the default."""
+    devices = sd.query_devices()
+    for i, d in enumerate(devices):
+        if d['max_input_channels'] > 0 and i == DEFAULT_DEVICE:
+            return i
+    # Fallback to first available
+    for i, d in enumerate(devices):
+        if d['max_input_channels'] > 0:
+            return i
+    raise RuntimeError("No input devices available")
+
+DEVICE_INDEX = find_input_device()
 
 audio_queue: deque = deque(maxlen=50)
 
