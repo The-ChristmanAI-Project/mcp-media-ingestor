@@ -272,7 +272,12 @@ async def yorkie_status():
         "yorkie_connected": active_connections["yorkie"] > 0,
         "inbox_depth": len(yorkie_inbox),
         "outbox_depth": len(yorkie_outbox)
-    }        
+    } 
+
+@app.get("/yorkie-client", response_class=HTMLResponse)
+async def yorkie_client():
+    with open(os.path.join(os.path.dirname(__file__), "yorkie.html"), "r") as f:
+        return HTMLResponse(content=f.read())           
 
 
 # ── Riley's Communication WebSocket ──────────────────────────────────────────

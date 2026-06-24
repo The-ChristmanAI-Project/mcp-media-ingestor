@@ -14,6 +14,7 @@
     --purple: #b06aff;
     --green: #00ff88;
     --red: #ff3355;
+    --pink: #ff69b4;
     --text: #e0e0ff;
     --muted: #4a4a7a;
   }
@@ -119,16 +120,16 @@
     50% { opacity: 0.4; }
   }
 
-  /* ── Main Grid — 5 columns: Everett | Center | Riley | Derek | Hermes ── */
+  /* ── Main Grid — 6 columns: Everett | Center | Riley | Derek | Hermes | Yorkie ── */
   .grid {
     display: grid;
-    grid-template-columns: 1fr 2fr 1fr 1fr 1fr;
+    grid-template-columns: 1fr 2fr 1fr 1fr 1fr 1fr;
     gap: 16px;
     padding: 20px;
-    max-width: 1800px;
+    max-width: 2000px;
     margin: 0 auto;
   }
-  @media (max-width: 1300px) { .grid { grid-template-columns: 1fr 1fr 1fr; } }
+  @media (max-width: 1400px) { .grid { grid-template-columns: 1fr 1fr 1fr; } }
   @media (max-width: 900px)  { .grid { grid-template-columns: 1fr 1fr; } }
   @media (max-width: 600px)  { .grid { grid-template-columns: 1fr; } }
 
@@ -193,6 +194,7 @@
   #claude-card  { --accent: var(--gold); }
   #riley-card   { --accent: var(--purple); }
   #hermes-card  { --accent: var(--green); }
+  #yorkie-card  { --accent: var(--pink); }
 
   .waveform {
     display: flex;
@@ -293,6 +295,23 @@
   }
   .hermes-label { font-size: 9px; letter-spacing: 3px; color: var(--green); text-transform: uppercase; margin-bottom: 6px; }
 
+  /* Yorkie channel */
+  .yorkie-channel { padding: 12px; }
+  .yorkie-inbox {
+    background: rgba(255,105,180,0.06);
+    border: 1px solid rgba(255,105,180,0.2);
+    border-radius: 8px;
+    padding: 12px;
+    min-height: 60px;
+    font-size: 12px;
+    color: #ffb3d9;
+    margin-bottom: 10px;
+    letter-spacing: 0.5px;
+    text-align: left;
+    line-height: 1.5;
+  }
+  .yorkie-label { font-size: 9px; letter-spacing: 3px; color: var(--pink); text-transform: uppercase; margin-bottom: 6px; }
+
   /* Center Panel */
   .center-panel { display: flex; flex-direction: column; gap: 16px; }
 
@@ -359,6 +378,7 @@
   .log-entry.riley   { border-color: var(--purple); }
   .log-entry.claude  { border-color: var(--gold); }
   .log-entry.hermes  { border-color: var(--green); }
+  .log-entry.yorkie  { border-color: var(--pink); }
   .log-entry .log-who {
     font-size: 9px;
     letter-spacing: 2px;
@@ -389,6 +409,7 @@
   }
   .conn-line.gold   { background: linear-gradient(90deg, transparent, var(--gold), transparent);   animation-delay: 0.5s; }
   .conn-line.riley  { background: linear-gradient(90deg, transparent, var(--purple), transparent); animation-delay: 1s; }
+  .conn-line.pink   { background: linear-gradient(90deg, transparent, var(--pink), transparent);   animation-delay: 1.5s; }
   .conn-dot {
     width: 6px; height: 6px;
     border-radius: 50%;
@@ -404,14 +425,14 @@
   /* Stats Row */
   .stats-row {
     display: grid;
-    grid-template-columns: repeat(5, 1fr);
+    grid-template-columns: repeat(6, 1fr);
     gap: 12px;
     padding: 16px 20px;
-    max-width: 1600px;
+    max-width: 1800px;
     margin: 0 auto;
     border-top: 1px solid var(--border);
   }
-  @media (max-width: 800px) { .stats-row { grid-template-columns: repeat(3, 1fr); } }
+  @media (max-width: 900px) { .stats-row { grid-template-columns: repeat(3, 1fr); } }
   @media (max-width: 500px) { .stats-row { grid-template-columns: repeat(2, 1fr); } }
 
   .stat-card { background: var(--panel); border: 1px solid var(--border); border-radius: 8px; padding: 14px 16px; text-align: center; }
@@ -419,6 +440,7 @@
   .stat-value.gold   { color: var(--gold); }
   .stat-value.purple { color: var(--purple); }
   .stat-value.green  { color: var(--green); }
+  .stat-value.pink   { color: var(--pink); }
   .stat-label { font-size: 9px; letter-spacing: 2px; text-transform: uppercase; color: var(--muted); }
 
   .timestamp { text-align: center; font-size: 10px; color: var(--muted); letter-spacing: 2px; padding: 12px; }
@@ -443,6 +465,7 @@
     <div class="status-item"><div class="dot" id="vision-dot"></div><span>VISION</span></div>
     <div class="status-item"><div class="dot" id="riley-dot"></div><span>RILEY</span></div>
     <div class="status-item"><div class="dot" id="hermes-dot-status"></div><span>HERMES</span></div>
+    <div class="status-item"><div class="dot" id="yorkie-dot-status"></div><span>YORKIE</span></div>
     <div class="status-item"><div class="dot alive"></div><span>DEREK 309</span></div>
     <div class="status-item"><div class="dot alive"></div><span id="clock">--:--:--</span></div>
   </div>
@@ -492,7 +515,7 @@
         <div class="conn-line gold"></div>
         <div class="conn-dot"></div>
         <div class="conn-line riley"></div>
-        <div class="conn-line riley"></div>
+        <div class="conn-line pink"></div>
       </div>
 
       <div class="panel-block">
@@ -540,10 +563,10 @@
           SESSION LIVE
         </div>
       </div>
-      </div>
+    </div>
 
-      <!-- Hermes Card -->
-      <div class="agent-card" id="hermes-card">
+    <!-- Hermes Card -->
+    <div class="agent-card" id="hermes-card">
       <div class="agent-ring" id="hermes-ring">🤖</div>
       <div class="agent-name">Hermes</div>
       <div class="agent-role">Agent · Silicon</div>
@@ -556,11 +579,27 @@
           <span id="hermes-session-id">--</span>
         </div>
       </div>
-      </div>
+    </div>
 
+    <!-- Yorkie Card -->
+    <div class="agent-card" id="yorkie-card">
+      <div class="agent-ring" id="yorkie-ring">🌟</div>
+      <div class="agent-name">Yorkie</div>
+      <div class="agent-role">Student · Carbon</div>
+      <div class="agent-status" id="yorkie-card-status">OFFLINE</div>
+      <div class="yorkie-channel">
+        <div class="yorkie-label">Latest from Yorkie</div>
+        <div class="yorkie-inbox" id="yorkie-inbox-display">Awaiting connection...</div>
+        <div class="instance-badge" style="color: var(--pink);">
+          <div class="dot" id="yorkie-dot"></div>
+          <span id="yorkie-session-label">--</span>
+        </div>
       </div>
+    </div>
 
-      <div class="stats-row">
+  </div>
+
+  <div class="stats-row">
     <div class="stat-card">
       <div class="stat-value" id="stat-mic">0</div>
       <div class="stat-label">Mic Clients</div>
@@ -582,6 +621,10 @@
       <div class="stat-label">Derek Outbox</div>
     </div>
     <div class="stat-card">
+      <div class="stat-value pink" id="stat-yorkie">0</div>
+      <div class="stat-label">Yorkie Inbox</div>
+    </div>
+    <div class="stat-card">
       <div class="stat-value green" id="stat-uptime">LIVE</div>
       <div class="stat-label">Bridge Uptime</div>
     </div>
@@ -595,6 +638,8 @@
   let lastTranscript = '';
   let lastRiley = '';
   let lastClaude = '';
+  let lastHermes = '';
+  let lastYorkie = '';
   let startTime = Date.now();
 
   setInterval(() => {
@@ -717,7 +762,6 @@
     } catch(e) {}
   }
 
-  let lastHermes = '';
   async function pollHermes() {
     try {
       const r = await fetch('/hermes/latest');
@@ -745,7 +789,48 @@
     }
   }
 
-  let lastVisionB64 = '';
+  async function pollYorkie() {
+    try {
+      const statusR = await fetch('/yorkie/status');
+      const s = await statusR.json();
+      const isOnline = s.yorkie_connected;
+
+      document.getElementById('yorkie-dot-status').className = isOnline ? 'dot alive' : 'dot dead';
+      document.getElementById('yorkie-dot').className = isOnline ? 'dot alive' : 'dot dead';
+      document.getElementById('stat-yorkie').textContent = s.inbox_depth || 0;
+
+      const r = await fetch('/yorkie/latest');
+      const d = await r.json();
+      const text = (d.text || '').trim();
+
+      if (isOnline && document.getElementById('yorkie-card-status').textContent === 'OFFLINE') {
+        document.getElementById('yorkie-card-status').textContent = 'ONLINE';
+        document.getElementById('yorkie-session-label').textContent = 'CONNECTED';
+        addLog('Yorkie · Student', 'Yorkie has joined the bridge.', 'yorkie');
+      } else if (!isOnline) {
+        document.getElementById('yorkie-card-status').textContent = 'OFFLINE';
+        document.getElementById('yorkie-session-label').textContent = '--';
+      }
+
+      if (text && text !== lastYorkie && text !== 'Awaiting connection...') {
+        lastYorkie = text;
+        document.getElementById('yorkie-inbox-display').textContent = text;
+        document.getElementById('yorkie-ring').classList.add('speaking');
+        document.getElementById('yorkie-card').classList.add('active');
+        document.getElementById('yorkie-card-status').textContent = 'SPEAKING';
+        setTimeout(() => {
+          document.getElementById('yorkie-ring').classList.remove('speaking');
+          document.getElementById('yorkie-card').classList.remove('active');
+          document.getElementById('yorkie-card-status').textContent = isOnline ? 'ONLINE' : 'OFFLINE';
+        }, 4000);
+        addLog('Yorkie · Student', text, 'yorkie');
+      }
+    } catch(e) {
+      document.getElementById('yorkie-dot-status').className = 'dot dead';
+      document.getElementById('yorkie-dot').className = 'dot dead';
+    }
+  }
+
   async function pollVision() {
     try {
       const r = await fetch('/vision/latest');
@@ -774,18 +859,22 @@
     }
   }
 
-  setInterval(pollHealth, 3000);
+  let lastVisionB64 = '';
+
+  setInterval(pollHealth,     3000);
   setInterval(pollTranscript, 1500);
-  setInterval(pollRiley, 2000);
-  setInterval(pollClaude, 2000);
-  setInterval(pollHermes, 2000);
-  setInterval(pollVision, 1200);   // slightly faster for visual freshness
+  setInterval(pollRiley,      2000);
+  setInterval(pollClaude,     2000);
+  setInterval(pollHermes,     2000);
+  setInterval(pollYorkie,     2000);
+  setInterval(pollVision,     1200);
 
   pollHealth();
   pollTranscript();
   pollRiley();
   pollClaude();
   pollHermes();
+  pollYorkie();
   pollVision();
 </script>
 </body>
