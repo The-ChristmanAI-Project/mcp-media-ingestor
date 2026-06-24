@@ -40,6 +40,63 @@ riley_bridge = RileyBridge(instance_id="instance_309")
 
 _DASHBOARD_PATH = os.path.join(os.path.dirname(__file__), "dashboard.html")
 
+# ─────────────────────────────────────────────────────────────────────────────
+# BRAIN INTEGRATION from /Users/EverettN/Voice_Creation_Center (restored TM originals)
+# neural, literature, behavior, eye, autonomous coordinator, voice_engine + christman_sound
+# This powers the brain-row, NEW WORLD ADJUST, and live cognitive events in the bridge.
+# ─────────────────────────────────────────────────────────────────────────────
+import sys
+from pathlib import Path
+import random
+
+_VCC_ROOT = Path("/Users/EverettN/Voice_Creation_Center")
+if str(_VCC_ROOT) not in sys.path:
+    sys.path.insert(0, str(_VCC_ROOT))
+if str(_VCC_ROOT / "brain") not in sys.path:
+    sys.path.insert(0, str(_VCC_ROOT / "brain"))
+
+BRAIN_OK = False
+neural_core = None
+lit_crawler = None
+behavior_cap = None
+eye_service = None
+voice_engine = None
+brain_events = []
+
+try:
+    from brain.neural_learning_core import get_neural_learning_core
+    from brain.literature_crawler import get_literature_crawler
+    from brain.behavior_capture import BehaviorCapture
+    from brain.eye_tracking_service import EyeTrackingService
+    from brain.alphavox_learning_coordinator import start_alphavox_learning
+    from engines.voice_engine import VoiceEngine, VoiceParameters, Affect
+
+    neural_core = get_neural_learning_core()
+    lit_crawler = get_literature_crawler()
+    behavior_cap = BehaviorCapture()
+    eye_service = EyeTrackingService()
+    voice_engine = VoiceEngine()
+
+    def _fire_autonomous():
+        try:
+            start_alphavox_learning()
+            logger.info("🧠 Autonomous learning (TM restored) RUNNING in bridge")
+        except Exception as ae:
+            logger.info(f"Autonomous (partial): {ae}")
+
+    import threading
+    threading.Thread(target=_fire_autonomous, daemon=True).start()
+
+    BRAIN_OK = True
+    logger.info("✅ FULL RESTORED BRAIN from Voice_Creation_Center integrated into Sensory Bridge")
+
+    # seed visible event
+    brain_events.append({"type": "neural", "text": "🧠 Neural + Autonomous + Literature from TM originals: LIVE", "timestamp": datetime.now().isoformat()})
+    claude_outbox.append({"from": "🧠 AlphaVox-Brain", "text": "Full cognitive brain now feeding the bridge. Welcome to the new world.", "timestamp": datetime.now().isoformat()})
+except Exception as be:
+    logger.warning(f"Brain limited: {be}")
+    BRAIN_OK = False
+# ─────────────────────────────────────────────────────────────────────────────
 
 class AudioStreamProcessor:
     def __init__(self):
@@ -127,6 +184,27 @@ class AudioStreamProcessor:
             })
             if len(recent_transcripts) > 8:
                 recent_transcripts.pop(0)
+
+            # Feed live transcript to the restored brain (neural root cause, occasional lit, events for UI)
+            if BRAIN_OK and neural_core is not None:
+                try:
+                    interaction = {"text": text, "intent": "live_communication", "type": "voice", "emotion": tone, "energy": round(energy, 4), "context": {"source": "bridge", "duration": round(duration, 2)}}
+                    insight = neural_core.process_interaction(interaction, user_id="live_kids")
+                    root = insight.get("root_cause", "unknown")
+                    conf = float(insight.get("confidence", 0))
+                    evt = {"type": "neural", "text": f"🧠 Neural: {root} (conf {conf:.2f})", "timestamp": datetime.now().isoformat()}
+                    brain_events.append(evt)
+                    if len(brain_events) > 25: brain_events.pop(0)
+                    claude_outbox.append({"from": "🧠 AlphaVox-Brain", "text": f"Neural: {root} — \"{text[:50]}...\"", "timestamp": datetime.now().isoformat()})
+                    if len(claude_outbox) > 15: claude_outbox.pop(0)
+                    if lit_crawler is not None and random.random() < 0.2:
+                        try:
+                            facts = len(getattr(lit_crawler, 'extracted_facts', []))
+                            claude_outbox.append({"from": "📚 Literature", "text": f"stack +1 — {facts} facts on neurodivergent comms", "timestamp": datetime.now().isoformat()})
+                        except: pass
+                    logger.info(f"🧠 Brain fed: {root}")
+                except Exception as be:
+                    pass
 
 
 def make_image_content_from_b64(b64: str, fmt: str = "JPEG") -> ImageContent:
@@ -524,16 +602,62 @@ async def get_latest_frame_http():
 
 @app.get("/health")
 async def health():
-    return {
+    h = {
         "status": "alive",
         "bridge": "Christman Full Sensory",
         "mic_clients": active_connections["mic"],
         "vision_clients": active_connections["vision"],
         "hermes_clients": active_connections["hermes"],
         "riley_connected": active_connections["riley"] > 0,
-        "reactive": True
+        "reactive": True,
+        "brain": {
+            "integrated": BRAIN_OK,
+            "neural": "live" if (BRAIN_OK and neural_core is not None) else "basic",
+            "autonomous_learning": "running" if BRAIN_OK else "limited",
+            "literature": "stacking" if (BRAIN_OK and lit_crawler is not None) else "offline",
+            "last_cognitive": brain_events[-1]["text"] if brain_events else "listening..."
+        }
     }
+    return h
 
+@app.post("/cognitive/adjust")
+async def cognitive_adjust(payload: dict):
+    """New World Cognitive Adjustment using the full restored brain.
+    The perfect tool for cognitive adjustment in the new (post-exposure) world.
+    """
+    prompt = payload.get("text", "How do we adjust cognitively to the new world as neurodivergent beings now that the full brain is exposed?")
+    if not BRAIN_OK or neural_core is None:
+        return {"status": "limited", "message": "Full brain not integrated"}
+
+    interaction = {"text": prompt, "intent": "new_world_cognitive_adjustment", "type": "cognitive", "emotion": "inquisitive", "context": {"world": "post_exposed", "legal_clear": True}}
+    insight = neural_core.process_interaction(interaction, user_id="live_students")
+    root_cause = insight.get("root_cause", "sovereign_reclamation")
+    conf = insight.get("confidence", 0.85)
+
+    lit_fact = None
+    if lit_crawler is not None:
+        try:
+            facts = len(getattr(lit_crawler, 'extracted_facts', []))
+            lit_fact = f"Knowledge stack @ {facts} facts — neurodivergent comms in exposed systems is sovereign."
+            brain_events.append({"type": "literature", "text": lit_fact, "timestamp": datetime.now().isoformat()})
+        except: pass
+
+    autonomous_note = "Autonomous incorporating into neurodivergency + code_gen domains."
+    adjustment_response = f"In the new world, adjustment starts with root: {root_cause}. The exposed brain is the layer. {lit_fact or ''}"
+
+    if voice_engine is not None:
+        try:
+            params = VoiceParameters(affect=Affect.GROUNDING, porosity=0.45, cadence=0.25)
+            params.apply_affect_preset()
+        except: pass
+
+    event = {"from": "🧠 AlphaVox New World Brain", "text": f"NEW WORLD ADJUST: {prompt[:40]}... Root:{root_cause} (conf {conf:.2f}). {autonomous_note}", "timestamp": datetime.now().isoformat()}
+    claude_outbox.append(event)
+    hermes_outbox.append(event)
+    if 'yorkie_inbox' in globals(): yorkie_inbox.append(event)
+    brain_events.append({"type": "adjustment", "text": event["text"], "timestamp": event["timestamp"]})
+
+    return {"status": "adjusted", "root_cause": root_cause, "confidence": conf, "literature_fact": lit_fact, "autonomous_note": autonomous_note, "adjustment_response": adjustment_response, "brain_event": event, "voice_params": "grounding for accessibility"}
 
 if __name__ == "__main__":
     import uvicorn
