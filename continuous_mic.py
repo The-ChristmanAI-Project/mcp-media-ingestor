@@ -6,8 +6,9 @@ import numpy as np
 from websockets.asyncio.client import connect as ws_connect
 import sounddevice as sd
 
-# Maonocaster E2 — Everett's production mic, native 16kHz
-DEVICE_INDEX = 4
+# Auto-detect available input device or use env override
+import os
+DEVICE_INDEX = int(os.getenv("CHRISTMAN_MIC_DEVICE", "3"))  # iMac Microphone = 3
 SAMPLE_RATE  = 16000
 
 audio_queue: deque = deque(maxlen=50)
@@ -27,8 +28,15 @@ async def sender(ws):
 
 
 async def continuous_stream():
+    # List available input devices on startup
+    print("🎙️ Available input devices:")
+    for i, d in enumerate(sd.query_devices()):
+        if d['max_input_channels'] > 0:
+            marker = " ← USING" if i == DEVICE_INDEX else ""
+            print(f"  [{i}] {d['name']} — {d['max_input_channels']} ch, {d['default_samplerate']:.0f} Hz{marker}")
+    
     async with ws_connect("ws://localhost:8765/ws/audio") as ws:
-        print("🎙️ Maonocaster E2 — 16kHz native — ACTIVE")
+        print(f"🎙️ Device {DEVICE_INDEX} @ 16kHz — ACTIVE")
         sender_task = asyncio.create_task(sender(ws))
 
         def audio_callback(indata, frames, time, status):
