@@ -1,0 +1,20 @@
+[
+  {
+    "post_id": "",
+    "platform": "instagram",
+    "publish_at": "",
+    "caption": "",
+    "status": "pending",
+    "id": "sched_00001",
+    "created_at": "2026-06-23T21:58:38.797554"
+  },
+  {
+    "post_id": "post_001",
+    "platform": "instagram",
+    "publish_at": "2099-01-01T12:00:00Z",
+    "caption": "Test caption",
+    "status": "pending",
+    "id": "sched_00002",
+    "created_at": "2026-06-23T21:58:38.799570"
+  }
+]

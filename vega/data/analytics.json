@@ -1,0 +1,18 @@
+[
+  {
+    "post_id": "post_001",
+    "platform": "instagram",
+    "metrics": {},
+    "recorded_at": "2026-06-23T21:58:38.800638"
+  },
+  {
+    "post_id": "post_001",
+    "platform": "instagram",
+    "metrics": {
+      "views": 10000,
+      "likes": 500,
+      "comments": 30
+    },
+    "recorded_at": "2026-06-23T21:58:38.803147"
+  }
+]
