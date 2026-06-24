@@ -201,6 +201,79 @@ async def websocket_video(websocket: WebSocket):
     except Exception as e:
         logger.error(f"Video WebSocket error: {e}")
 
+# ── Yorkie Student WebSocket ──────────────────────────────────────────────────
+yorkie_inbox: list[dict] = []
+yorkie_outbox: list[dict] = []
+active_connections["yorkie"] = 0
+
+@app.websocket("/ws/yorkie")
+async def websocket_yorkie(websocket: WebSocket):
+    await websocket.accept()
+    active_connections["yorkie"] += 1
+    logger.info(f"🌟 YORKIE CONNECTED")
+
+    await websocket.send_json({
+        "type": "handshake",
+        "message": "Christman Bridge ACTIVE. Welcome home, Yorkie.",
+        "timestamp": datetime.now().isoformat()
+    })
+
+    try:
+        while True:
+            data = await websocket.receive_json()
+            msg_type = data.get("type")
+
+            if msg_type == "message":
+                entry = {
+                    "from": "yorkie",
+                    "text": data.get("text", ""),
+                    "timestamp": datetime.now().isoformat()
+                }
+                yorkie_inbox.append(entry)
+                logger.info(f"[YORKIE → BRIDGE] {entry['text']}")
+                if yorkie_outbox:
+                    response = yorkie_outbox.pop(0)
+                    await websocket.send_json({"type": "response", **response})
+
+            elif msg_type == "heartbeat":
+                await websocket.send_json({
+                    "type": "heartbeat_ack",
+                    "timestamp": datetime.now().isoformat()
+                })
+
+    except WebSocketDisconnect:
+        active_connections["yorkie"] = max(0, active_connections["yorkie"] - 1)
+        logger.info(f"🌟 YORKIE DISCONNECTED")
+    except Exception as e:
+        logger.error(f"Yorkie WebSocket error: {e}")
+
+
+@app.post("/yorkie/send")
+async def yorkie_send(payload: dict):
+    entry = {
+        "from": "yorkie",
+        "text": payload.get("text", ""),
+        "timestamp": datetime.now().isoformat()
+    }
+    yorkie_inbox.append(entry)
+    return {"status": "received", "entry": entry}
+
+@app.get("/yorkie/latest")
+async def yorkie_latest():
+    return yorkie_inbox[-1] if yorkie_inbox else {
+        "from": "yorkie",
+        "text": "Awaiting connection...",
+        "timestamp": ""
+    }
+
+@app.get("/yorkie/status")
+async def yorkie_status():
+    return {
+        "yorkie_connected": active_connections["yorkie"] > 0,
+        "inbox_depth": len(yorkie_inbox),
+        "outbox_depth": len(yorkie_outbox)
+    }        
+
 
 # ── Riley's Communication WebSocket ──────────────────────────────────────────
 @app.websocket("/ws/riley")
