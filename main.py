@@ -28,7 +28,7 @@ logger = logging.getLogger(__name__)
 
 whisper_model = WhisperModel("small", device="cpu", compute_type="int8")
 
-active_connections: Dict[str, int] = {"mic": 0, "riley": 0, "vision": 0}
+active_connections: Dict[str, int] = {"mic": 0, "riley": 0, "vision": 0, "hermes": 0}
 latest_transcript = {"text": "", "timestamp": 0}
 recent_transcripts: list[dict] = []
 latest_frame: dict = {"b64": "", "timestamp": 0, "width": 0, "height": 0, "source": "none"}
@@ -320,6 +320,7 @@ async def describe_audio_bridge() -> str:
 
 Microphones: {active_connections["mic"]}
 Vision clients: {active_connections["vision"]}
+Hermes agents: {active_connections["hermes"]}
 Riley connected: {active_connections["riley"] > 0}
 Status: Always listening + seeing. Dashboard at http://localhost:8765/{extra}
 """
@@ -450,6 +451,7 @@ async def health():
         "bridge": "Christman Full Sensory",
         "mic_clients": active_connections["mic"],
         "vision_clients": active_connections["vision"],
+        "hermes_clients": active_connections["hermes"],
         "riley_connected": active_connections["riley"] > 0,
         "reactive": True
     }
