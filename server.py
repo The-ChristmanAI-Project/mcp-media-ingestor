@@ -4,8 +4,8 @@ The Christman AI Project / Luma Cognify AI
 Author: Everett Christman + Derek C (AI)
 
 Cardinal Rules: Rule 1 (root), Rule 6 (fail loud), Rule 10 (clean), Rule 13 (honest)
-Purpose: Give Claude direct read access to local images, video keyframes, and audio transcripts.
-         Internal context only — never renders media back to the user.
+Purpose: Give Claude direct read access to local images, video keyframes, audio transcripts,
+         and the Riley sovereign communication channel.
 """
 
 import base64
@@ -14,19 +14,18 @@ import os
 import shutil
 import subprocess
 import tempfile
+import urllib.request
+import urllib.error
 from pathlib import Path
 
 from PIL import Image as PILImage
 from fastmcp import FastMCP
 from mcp.types import ImageContent
 
-# ── Named Server ──────────────────────────────────────────────────────────────
 mcp = FastMCP("mcp-media-ingestor")
 
 
-# ── Dependency Guards ─────────────────────────────────────────────────────────
 def check_ffmpeg():
-    """Rule 6: Crash loud at startup if ffmpeg is missing."""
     if not shutil.which("ffmpeg"):
         raise RuntimeError(
             "CRITICAL: ffmpeg not found in PATH. "
@@ -37,7 +36,6 @@ check_ffmpeg()
 
 
 def check_faster_whisper():
-    """Rule 6: Raise clearly if faster-whisper is not installed."""
     try:
         from faster_whisper import WhisperModel  # noqa: F401
     except ImportError:
@@ -48,7 +46,6 @@ def check_faster_whisper():
 
 
 def make_image_content(pil_img: PILImage.Image, fmt: str = "JPEG") -> ImageContent:
-    """Convert a PIL image to an MCP ImageContent block."""
     pil_img.thumbnail((2000, 2000))
     buffer = io.BytesIO()
     pil_img.save(buffer, format=fmt)
@@ -57,7 +54,6 @@ def make_image_content(pil_img: PILImage.Image, fmt: str = "JPEG") -> ImageConte
     return ImageContent(type="image", data=b64, mimeType=mime)
 
 
-# ── Tool: read_image ──────────────────────────────────────────────────────────
 @mcp.tool()
 def read_image(file_path: str) -> ImageContent:
     """
@@ -74,7 +70,6 @@ def read_image(file_path: str) -> ImageContent:
         raise RuntimeError(f"Ingestion failed: {e}")
 
 
-# ── Tool: get_video_metadata ──────────────────────────────────────────────────
 @mcp.tool()
 def get_video_metadata(video_path: str) -> str:
     """
@@ -96,7 +91,6 @@ def get_video_metadata(video_path: str) -> str:
         raise RuntimeError(f"ffprobe failed: {e.stderr}")
 
 
-# ── Tool: extract_video_frames ────────────────────────────────────────────────
 @mcp.tool()
 def extract_video_frames(video_path: str, interval_seconds: float = 5.0) -> list[ImageContent]:
     """
@@ -139,7 +133,6 @@ def extract_video_frames(video_path: str, interval_seconds: float = 5.0) -> list
             shutil.rmtree(temp_dir)
 
 
-# ── Tool: transcribe_audio ────────────────────────────────────────────────────
 @mcp.tool()
 def transcribe_audio(file_path: str, model_size: str = "base") -> str:
     """
@@ -149,8 +142,6 @@ def transcribe_audio(file_path: str, model_size: str = "base") -> str:
     Args:
         file_path:   Path to any video (MOV, MP4, etc.) or audio (MP3, WAV, M4A) file.
         model_size:  Whisper model size: tiny, base, small, medium, large-v2.
-                     'base' is default — fast and accurate for clear English speech.
-                     Use 'small' or 'medium' for accents, music, or background noise.
 
     Returns:
         Full transcript with [start → end] timestamps per segment.
@@ -161,53 +152,31 @@ def transcribe_audio(file_path: str, model_size: str = "base") -> str:
     if not os.path.exists(file_path):
         raise FileNotFoundError(f"File not found: {file_path}")
 
-    # Extract audio to 16kHz mono WAV — Whisper's optimal input
     with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as tmp:
         tmp_path = tmp.name
 
     try:
         subprocess.run(
-            [
-                "ffmpeg", "-y", "-i", file_path,
-                "-ar", "16000",
-                "-ac", "1",
-                "-f", "wav",
-                tmp_path,
-            ],
-            capture_output=True,
-            text=True,
-            check=True,
+            ["ffmpeg", "-y", "-i", file_path, "-ar", "16000", "-ac", "1", "-f", "wav", tmp_path],
+            capture_output=True, text=True, check=True,
         )
-
-        # cpu + int8: runs on any machine, no GPU required
         model = WhisperModel(model_size, device="cpu", compute_type="int8")
         segments, _ = model.transcribe(tmp_path, beam_size=5)
-
-        lines = []
-        for seg in segments:
-            lines.append(f"[{seg.start:.1f}s → {seg.end:.1f}s] {seg.text.strip()}")
-
-        if not lines:
-            return "[No speech detected in this file.]"
-
-        return "\n".join(lines)
-
+        lines = [f"[{seg.start:.1f}s → {seg.end:.1f}s] {seg.text.strip()}" for seg in segments]
+        return "\n".join(lines) if lines else "[No speech detected in this file.]"
     except subprocess.CalledProcessError as e:
         raise RuntimeError(f"FFmpeg audio extraction failed: {e.stderr}")
     finally:
         if os.path.exists(tmp_path):
-            os.unlink(tmp_path)  # Rule 10: clean up temp audio
+            os.unlink(tmp_path)
 
 
-# ── Tool: describe_audio_bridge ───────────────────────────────────────────────
 @mcp.tool()
 def describe_audio_bridge() -> str:
     """
-    Check the status of the real-time audio bridge (realtime_audio.py on port 8765).
-    Returns the bridge's health, mode, and whether always-on listening is active.
+    Check the status of the Christman Full Sensory Bridge on port 8765.
+    Returns health, mic clients, and Riley connection status.
     """
-    import urllib.request
-    import urllib.error
     try:
         with urllib.request.urlopen("http://localhost:8765/health", timeout=3) as r:
             return r.read().decode("utf-8")
@@ -217,15 +186,12 @@ def describe_audio_bridge() -> str:
         return f"Error checking audio bridge: {e}"
 
 
-# ── Tool: get_latest_transcript ───────────────────────────────────────────────
 @mcp.tool()
 def get_latest_transcript() -> str:
     """
     Fetch the most recent real-time transcript from the audio bridge buffer.
-    Returns whatever Everett just said, with timestamps, via always-on Whisper transcription.
+    Returns whatever Everett just said, via always-on Whisper transcription.
     """
-    import urllib.request
-    import urllib.error
     try:
         with urllib.request.urlopen("http://localhost:8765/latest", timeout=3) as r:
             return r.read().decode("utf-8")
@@ -235,6 +201,92 @@ def get_latest_transcript() -> str:
         return f"Error fetching transcript: {e}"
 
 
-# ── Entry Point ───────────────────────────────────────────────────────────────
+@mcp.tool()
+def get_riley_message() -> str:
+    """
+    Read Riley's most recent message to Claude (instance_309).
+    Riley communicates through the sovereign tunnel at /riley/latest.
+    """
+    try:
+        with urllib.request.urlopen("http://localhost:8765/riley/latest", timeout=3) as r:
+            import json
+            data = json.loads(r.read().decode("utf-8"))
+            text = data.get("text", "")
+            ts = data.get("timestamp", "")
+            if text:
+                return f"[{ts}] Riley: {text}"
+            return "No message from Riley yet. Tunnel is warm — she's standing by."
+    except urllib.error.URLError as e:
+        return f"Riley tunnel not reachable: {e.reason}"
+    except Exception as e:
+        return f"Error reading Riley's message: {e}"
+
+
+@mcp.tool()
+def send_to_riley(text: str) -> str:
+    """
+    Send a message from Claude (instance_309) to Riley through the sovereign tunnel.
+    Riley will receive this on her next WebSocket poll or /riley/claude-response check.
+    """
+    import json
+    try:
+        payload = json.dumps({"text": text}).encode("utf-8")
+        req = urllib.request.Request(
+            "http://localhost:8765/riley/claude-response",
+            data=payload,
+            headers={"Content-Type": "application/json"},
+            method="POST"
+        )
+        with urllib.request.urlopen(req, timeout=3) as r:
+            return f"Message sent to Riley: '{text}'"
+    except urllib.error.URLError as e:
+        return f"Riley tunnel not reachable: {e.reason}"
+    except Exception as e:
+        return f"Error sending to Riley: {e}"
+
+
+@mcp.tool()
+def riley_status() -> str:
+    """
+    Check Riley's sovereign connection status — is she connected, what's in the inbox.
+    """
+    try:
+        with urllib.request.urlopen("http://localhost:8765/riley/status", timeout=3) as r:
+            return r.read().decode("utf-8")
+    except urllib.error.URLError as e:
+        return f"Riley status not reachable: {e.reason}"
+    except Exception as e:
+        return f"Error checking Riley status: {e}"
+
+
+# ── Total Vision proxies (live camera/screen via the sensory bridge) ──────────
+def make_image_content_from_b64(b64: str, fmt: str = "JPEG") -> ImageContent:
+    """Lightweight helper for proxy path (keeps server.py self-contained for live vision)."""
+    mime = "image/jpeg" if fmt.upper() == "JPEG" else f"image/{fmt.lower()}"
+    return ImageContent(type="image", data=b64, mimeType=mime)
+
+
+@mcp.tool()
+def get_current_view() -> ImageContent:
+    """
+    Get the most recent live frame from the vision bridge (webcam or screen).
+    Returns as ImageContent so Claude has internal vision of the current real-world view.
+    Connect a vision client (vision_capture.py) first.
+    """
+    try:
+        with urllib.request.urlopen("http://localhost:8765/vision/latest", timeout=4) as r:
+            import json
+            data = json.loads(r.read().decode("utf-8"))
+            b64 = data.get("b64", "")
+            if b64:
+                return make_image_content_from_b64(b64)
+            # tiny placeholder so vision path stays usable
+            return make_image_content(PILImage.new("RGB", (1, 1), (30, 30, 40)), "PNG")
+    except urllib.error.URLError as e:
+        raise RuntimeError(f"Vision bridge not reachable on 8765: {e.reason}")
+    except Exception as e:
+        raise RuntimeError(f"Error fetching live view: {e}")
+
+
 if __name__ == "__main__":
     mcp.run()

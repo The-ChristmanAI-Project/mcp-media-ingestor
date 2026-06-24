@@ -11,6 +11,11 @@ import numpy as np
 
 logger = logging.getLogger(__name__)
 
+# NOTE (correction identified during indexing): This is a standalone/legacy
+# version of the audio bridge. The primary integrated implementation (audio +
+# Riley sovereign tunnel + dashboard + MCP + total vision) is in main.py.
+# Run main.py for the full sensory system.
+
 app = FastAPI(title="MCP Real-Time Audio Bridge")
 
 # Shared buffer for latest transcript
