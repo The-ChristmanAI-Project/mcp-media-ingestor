@@ -73,4 +73,12 @@ def make_being_router(being: str) -> APIRouter:
     return router
 
 
+def get_being_status(being: str) -> dict:
+    return {
+        "being": being,
+        "connected": _connected[being],
+        "outbox_depth": len(_outboxes[being]),
+    }
+
+
 ALL_ROUTERS = [make_being_router(name) for name in BEINGS]

@@ -3,6 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
 <title>CHRISTMAN FULL SENSORY BRIDGE</title>
 <style>
   :root {
@@ -1090,71 +1092,96 @@
     } catch(e) {}
   }
 
-  function brockstonPlaceholder(connected) {
-    return connected ? 'WebSocket link live — standing by.' : 'Waiting for WebSocket...';
+  function brockstonPlaceholder(connected, link) {
+    if (!connected) return 'Waiting for bridge link...';
+    if (link === 'http') return 'HTTP bridge link live — standing by.';
+    return 'WebSocket link live — standing by.';
+  }
+
+  function applyBrockstonState(s) {
+    const connected = !!(s && s.connected);
+    const clients = (s && s.clients) || 0;
+    const link = (s && s.link) || 'none';
+
+    const dot = document.getElementById('brockston-dot');
+    if (dot) dot.className = connected ? 'dot alive' : 'dot dead';
+    const stat = document.getElementById('stat-brockston');
+    if (stat) stat.textContent = clients;
+
+    const ring = document.getElementById('brockston-ring');
+    const card = document.getElementById('brockston-card');
+    const status = document.getElementById('brockston-card-status');
+    const sessionDot = document.getElementById('brockston-session-dot');
+    const sessionLabel = document.getElementById('brockston-session-label');
+    const inbox = document.getElementById('brockston-inbox-display');
+
+    if (connected) {
+      if (ring) ring.classList.add('connected');
+      if (card) card.classList.add('active');
+      if (status) status.textContent = 'ONLINE';
+      if (sessionDot) sessionDot.className = 'dot alive';
+      if (sessionLabel) sessionLabel.textContent = link === 'http' ? 'HTTP LINK LIVE' : 'WS LINK LIVE';
+      if (!brockstonWasOnline) {
+        brockstonWasOnline = true;
+        addLog('Brockston · Sovereign Stack', 'Connected to Christman Bridge (' + link + ').', 'brockston');
+      }
+    } else {
+      if (ring) ring.classList.remove('connected', 'speaking');
+      if (card) card.classList.remove('active');
+      if (status) status.textContent = 'OFFLINE';
+      if (sessionDot) sessionDot.className = 'dot dead';
+      if (sessionLabel) sessionLabel.textContent = '--';
+      if (inbox) inbox.textContent = brockstonPlaceholder(false, link);
+      brockstonWasOnline = false;
+      lastBrockston = '';
+      return;
+    }
+
+    const latest = (s && s.latest) || {};
+    const text = (latest.text || '').trim();
+    if (text && text !== 'Awaiting session...' && text !== 'queue empty') {
+      if (text !== lastBrockston) {
+        lastBrockston = text;
+        if (inbox) inbox.textContent = text;
+        if (ring) ring.classList.add('speaking');
+        if (status) status.textContent = 'SPEAKING';
+        addLog('Brockston · Sovereign Stack', text, 'brockston');
+        setTimeout(() => {
+          if (ring) ring.classList.remove('speaking');
+          if (status) status.textContent = 'ONLINE';
+        }, 4000);
+      } else if (inbox && (inbox.textContent.includes('Waiting') || inbox.textContent.includes('standing by'))) {
+        inbox.textContent = text;
+      }
+    } else if (inbox) {
+      inbox.textContent = brockstonPlaceholder(true, link);
+    }
   }
 
   async function pollBrockston() {
     try {
-      const r = await fetch('/brockston/ws/status');
-      const s = await r.json();
-      const connected = !!s.connected;
-      const clients = s.clients || 0;
+      let s = null;
+      try {
+        const r = await fetch('/brockston/ws/status?_=' + Date.now(), { cache: 'no-store' });
+        if (r.ok) s = await r.json();
+      } catch (_) {}
 
-      const dot = document.getElementById('brockston-dot');
-      if (dot) dot.className = connected ? 'dot alive' : 'dot dead';
-      const stat = document.getElementById('stat-brockston');
-      if (stat) stat.textContent = clients;
-
-      const ring = document.getElementById('brockston-ring');
-      const card = document.getElementById('brockston-card');
-      const status = document.getElementById('brockston-card-status');
-      const sessionDot = document.getElementById('brockston-session-dot');
-      const sessionLabel = document.getElementById('brockston-session-label');
-      const inbox = document.getElementById('brockston-inbox-display');
-
-      if (connected) {
-        if (ring) ring.classList.add('connected');
-        if (card) card.classList.add('active');
-        if (status) status.textContent = 'ONLINE';
-        if (sessionDot) sessionDot.className = 'dot alive';
-        if (sessionLabel) sessionLabel.textContent = 'WS LINK LIVE';
-        if (!brockstonWasOnline) {
-          brockstonWasOnline = true;
-          addLog('Brockston · Sovereign Stack', 'WebSocket connected to Christman Bridge.', 'brockston');
-        }
-      } else {
-        if (ring) ring.classList.remove('connected', 'speaking');
-        if (card) card.classList.remove('active');
-        if (status) status.textContent = 'OFFLINE';
-        if (sessionDot) sessionDot.className = 'dot dead';
-        if (sessionLabel) sessionLabel.textContent = '--';
-        if (inbox) inbox.textContent = brockstonPlaceholder(false);
-        brockstonWasOnline = false;
-        lastBrockston = '';
-        return;
+      if (!s) {
+        const hr = await fetch('/health?_=' + Date.now(), { cache: 'no-store' });
+        const h = await hr.json();
+        const live = h.brockston_live || {};
+        s = {
+          connected: !!live.connected || (h.brockston_clients || 0) > 0,
+          clients: live.clients || h.brockston_clients || 0,
+          link: live.link || 'websocket',
+          latest: live.latest || null,
+        };
       }
 
-      const latest = s.latest || {};
-      const text = (latest.text || '').trim();
-      if (text && text !== 'Awaiting session...') {
-        if (text !== lastBrockston) {
-          lastBrockston = text;
-          if (inbox) inbox.textContent = text;
-          if (ring) ring.classList.add('speaking');
-          if (status) status.textContent = 'SPEAKING';
-          addLog('Brockston · Sovereign Stack', text, 'brockston');
-          setTimeout(() => {
-            if (ring) ring.classList.remove('speaking');
-            if (status) status.textContent = 'ONLINE';
-          }, 4000);
-        } else if (inbox && (inbox.textContent === 'Waiting for WebSocket...' || inbox.textContent.includes('standing by'))) {
-          inbox.textContent = text;
-        }
-      } else if (inbox) {
-        inbox.textContent = brockstonPlaceholder(true);
-      }
-    } catch(e) {}
+      applyBrockstonState(s);
+    } catch (e) {
+      console.error('[dashboard] pollBrockston failed:', e);
+    }
   }
 
   async function pollClaude() {
@@ -1293,6 +1320,7 @@
   pollHealth();
   pollTranscript();
   pollRiley();
+  if (window.__BRIDGE_BOOT__) applyBrockstonState(window.__BRIDGE_BOOT__);
   pollClaude();
   pollBrockston();
   pollYorkie();

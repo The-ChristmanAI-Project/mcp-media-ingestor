@@ -351,11 +351,46 @@ if _FAMILY_BRIDGE_AVAILABLE:
     logger.info("👨‍👩‍👧‍👦 Family bridge routers mounted — alphavox, inferno, sierra, brockston, alphawolf")
 
 
+def _brockston_live_status() -> dict:
+    ws_clients = active_connections.get("brockston", 0)
+    http_connected = False
+    http_depth = 0
+    if _FAMILY_BRIDGE_AVAILABLE and _family_bridge is not None:
+        fb = _family_bridge.get_being_status("brockston")
+        http_connected = bool(fb.get("connected"))
+        http_depth = int(fb.get("outbox_depth") or 0)
+    latest = brockston_outbox[-1] if brockston_outbox else None
+    return {
+        "ws_clients": ws_clients,
+        "http_connected": http_connected,
+        "connected": ws_clients > 0 or http_connected,
+        "clients": ws_clients + (1 if http_connected and ws_clients == 0 else 0),
+        "link": "websocket" if ws_clients > 0 else ("http" if http_connected else "none"),
+        "outbox_depth": http_depth,
+        "latest": latest,
+    }
+
+
 # ── Dashboard ─────────────────────────────────────────────────────────────────
 @app.get("/", response_class=HTMLResponse)
 async def dashboard():
+    import json as _json
+
     with open(_DASHBOARD_PATH, "r") as f:
-        return HTMLResponse(content=f.read())
+        html = f.read()
+    boot = _json.dumps(_brockston_live_status())
+    inject = f'<script>window.__BRIDGE_BOOT__={boot};</script>'
+    if "</head>" in html:
+        html = html.replace("</head>", f'{inject}\n</head>', 1)
+    else:
+        html = inject + html
+    return HTMLResponse(
+        content=html,
+        headers={
+            "Cache-Control": "no-store, no-cache, must-revalidate, max-age=0",
+            "Pragma": "no-cache",
+        },
+    )
 
 
 # ── Everett's Audio WebSocket ─────────────────────────────────────────────────
@@ -834,12 +869,7 @@ async def carbon_send(payload: dict):
 
 @app.get("/brockston/ws/status")
 async def brockston_ws_status():
-    latest = brockston_outbox[-1] if brockston_outbox else None
-    return {
-        "connected": active_connections["brockston"] > 0,
-        "clients": active_connections["brockston"],
-        "latest": latest,
-    }
+    return _brockston_live_status()
 
 
 @app.get("/brockston/ws/latest")
@@ -997,6 +1027,7 @@ async def health():
         "vision_clients": active_connections["vision"],
         "carbon_clients": active_connections["carbon"],
         "brockston_clients": active_connections["brockston"],
+        "brockston_live": _brockston_live_status(),
         "riley_connected": active_connections["riley"] > 0,
         "reactive": True,
         "brain": {
