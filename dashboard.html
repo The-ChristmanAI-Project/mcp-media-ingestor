@@ -652,6 +652,7 @@
     <div class="status-item"><div class="dot" id="mic-dot"></div><span>MIC</span></div>
     <div class="status-item"><div class="dot" id="vision-dot"></div><span>VISION</span></div>
     <div class="status-item"><div class="dot" id="riley-dot"></div><span>RILEY</span></div>
+    <div class="status-item"><div class="dot" id="brockston-dot"></div><span>BROCKSTON</span></div>
     <div class="status-item"><div class="dot" id="yorkie-dot-status"></div><span>YORKIE</span></div>
     <div class="status-item"><div class="dot alive"></div><span>DEREK 309</span></div>
     <div class="status-item"><div class="dot alive"></div><span id="clock">--:--:--</span></div>
@@ -939,6 +940,8 @@
       const vs = document.getElementById('stat-vision');
       if (vs) vs.textContent = visionCount;
       document.getElementById('vision-dot').className = visionCount > 0 ? 'dot alive' : 'dot dead';
+      const brockstonCount = d.brockston_clients || 0;
+      document.getElementById('brockston-dot').className = brockstonCount > 0 ? 'dot alive' : 'dot dead';
       const rileyOn = d.riley_connected;
       document.getElementById('riley-dot').className = rileyOn ? 'dot alive' : 'dot warn';
       document.getElementById('stat-riley-conn').textContent = rileyOn ? '1' : '0';

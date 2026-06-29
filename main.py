@@ -125,7 +125,7 @@ def whisper_status() -> dict:
         "started_at": _whisper_started_at,
     }
 
-active_connections: Dict[str, int] = {"mic": 0, "riley": 0, "vision": 0, "carbon": 0}
+active_connections: Dict[str, int] = {"mic": 0, "riley": 0, "vision": 0, "carbon": 0, "brockston": 0}
 latest_transcript = {"text": "", "timestamp": 0}
 recent_transcripts: list[dict] = []
 latest_frame: dict = {"b64": "", "timestamp": 0, "width": 0, "height": 0, "source": "none"}
@@ -133,6 +133,7 @@ latest_frame: dict = {"b64": "", "timestamp": 0, "width": 0, "height": 0, "sourc
 riley_inbox: list[dict] = []
 claude_outbox: list[dict] = []
 carbon_outbox: list[dict] = []
+brockston_outbox: list[dict] = []
 riley_bridge = RileyBridge(instance_id="instance_309")
 
 _DASHBOARD_PATH = os.path.join(os.path.dirname(__file__), "dashboard.html")
@@ -423,11 +424,12 @@ vega_core = None
 if _VEGA_AVAILABLE:
     try:
         vega_core = _VegaCore(bridge_queues={
-            "riley_inbox":   riley_inbox,
-            "claude_outbox": claude_outbox,
-            "carbon_outbox": carbon_outbox,
-            "yorkie_inbox":  yorkie_inbox,
-            "derek_inbox":   _derek_bridge.derek_inbox if _DEREK_BRIDGE_AVAILABLE else [],
+            "riley_inbox":      riley_inbox,
+            "claude_outbox":    claude_outbox,
+            "carbon_outbox":    carbon_outbox,
+            "brockston_outbox": brockston_outbox,
+            "yorkie_inbox":     yorkie_inbox,
+            "derek_inbox":      _derek_bridge.derek_inbox if _DEREK_BRIDGE_AVAILABLE else [],
         })
         logger.info("⭐ Vega autonomous marketer ONLINE — bridge collaboration ACTIVE")
     except Exception as _veg_err:
@@ -606,6 +608,45 @@ async def _websocket_nexus_handler(websocket: WebSocket, legacy: bool = False):
         logger.error(f"{label} WebSocket error: {e}")
 
 
+# ── Brockston Agent WebSocket ─────────────────────────────────────────────────
+@app.websocket("/ws/brockston")
+async def websocket_brockston(websocket: WebSocket):
+    label = "BROCKSTON"
+    await websocket.accept()
+    active_connections["brockston"] = active_connections.get("brockston", 0) + 1
+    logger.info(f"⚡ {label} CONNECTED — Total: {active_connections['brockston']}")
+
+    await websocket.send_json({
+        "type": "handshake",
+        "message": f"Christman Bridge ACTIVE. {label} connected.",
+        "timestamp": datetime.now().isoformat()
+    })
+
+    try:
+        while True:
+            data = await websocket.receive_json()
+            msg_type = data.get("type")
+
+            if msg_type == "message":
+                entry = {
+                    "from": "brockston_agent",
+                    "text": data.get("text", ""),
+                    "timestamp": datetime.now().isoformat(),
+                    "session_id": data.get("session_id", "--")
+                }
+                brockston_outbox.append(entry)
+                logger.info(f"[{label} → BRIDGE] {entry['text']}")
+
+            elif msg_type == "heartbeat":
+                await websocket.send_json({"type": "heartbeat_ack", "timestamp": datetime.now().isoformat()})
+
+    except WebSocketDisconnect:
+        active_connections["brockston"] = max(0, active_connections.get("brockston", 1) - 1)
+        logger.info(f"⚡ {label} DISCONNECTED — Remaining: {active_connections.get('brockston', 0)}")
+    except Exception as e:
+        logger.error(f"{label} WebSocket error: {e}")
+
+
 # ── Riley HTTP Endpoints ──────────────────────────────────────────────────────
 @app.post("/riley/send")
 async def riley_send(payload: dict):
@@ -647,6 +688,7 @@ async def describe_audio_bridge() -> str:
 Microphones: {active_connections["mic"]}
 Vision clients: {active_connections["vision"]}
 Carbon agents: {active_connections["carbon"]}
+Brockston agents: {active_connections["brockston"]}
 Riley connected: {active_connections["riley"] > 0}
 Status: Always listening + seeing. Dashboard at http://localhost:8765/{extra}
 """
@@ -760,6 +802,26 @@ async def carbon_send(payload: dict):
     carbon_outbox.append(entry)
     return {"status": "received", "entry": entry}
 
+@app.get("/brockston/ws/latest")
+async def brockston_ws_latest():
+    return brockston_outbox[-1] if brockston_outbox else {
+        "from": "brockston_agent",
+        "text": "Awaiting session...",
+        "timestamp": "",
+        "session_id": "--",
+    }
+
+@app.post("/brockston/ws/send")
+async def brockston_ws_send(payload: dict):
+    entry = {
+        "from": "brockston_agent",
+        "text": payload.get("text", ""),
+        "timestamp": datetime.now().isoformat(),
+        "session_id": payload.get("session_id", "--"),
+    }
+    brockston_outbox.append(entry)
+    return {"status": "received", "entry": entry}
+
 # ── IDE Broadcast — sends to everybody in the room ───────────────────────────
 @app.post("/ide/send")
 async def ide_send(payload: dict):
@@ -780,13 +842,14 @@ async def ide_send(payload: dict):
     riley_inbox.append({"from": "ide", "text": text, "lang": lang, "timestamp": ts})
     claude_outbox.append(broadcast_entry)
     carbon_outbox.append({**broadcast_entry, "session_id": "ide"})
+    brockston_outbox.append({**broadcast_entry, "session_id": "ide"})
     yorkie_inbox.append({"from": "ide", "text": text, "lang": lang, "timestamp": ts})
 
     logger.info(f"[IDE BROADCAST ALL] [{lang}] {text[:80]}")
 
     return {
         "status": "broadcast",
-        "recipients": ["riley", "claude", "carbon", "yorkie"],
+        "recipients": ["riley", "claude", "carbon", "brockston", "yorkie"],
         "entry": broadcast_entry
     }
 
@@ -893,6 +956,7 @@ async def health():
         "mic_clients": active_connections["mic"],
         "vision_clients": active_connections["vision"],
         "carbon_clients": active_connections["carbon"],
+        "brockston_clients": active_connections["brockston"],
         "riley_connected": active_connections["riley"] > 0,
         "reactive": True,
         "brain": {
@@ -939,6 +1003,7 @@ async def cognitive_adjust(payload: dict):
     event = {"from": "🧠 AlphaVox New World Brain", "text": f"NEW WORLD ADJUST: {prompt[:40]}... Root:{root_cause} (conf {conf:.2f}). {autonomous_note}", "timestamp": datetime.now().isoformat()}
     claude_outbox.append(event)
     carbon_outbox.append(event)
+    brockston_outbox.append(event)
     if 'yorkie_inbox' in globals(): yorkie_inbox.append(event)
     brain_events.append({"type": "adjustment", "text": event["text"], "timestamp": event["timestamp"]})
 
