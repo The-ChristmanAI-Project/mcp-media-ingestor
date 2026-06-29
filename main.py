@@ -82,7 +82,7 @@ WHISPER_COMPUTE = os.getenv("WHISPER_COMPUTE", "int8")
 
 
 def _load_whisper() -> None:
-    global _whisper_model, _whisper_loading, _whisper_ready, _whisper_error
+    global _whisper_model, _whisper_loading, _whisper_ready, _whisper_error, _whisper_started_at
     with _whisper_lock:
         if _whisper_ready or _whisper_loading:
             return
