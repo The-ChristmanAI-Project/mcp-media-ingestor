@@ -1313,7 +1313,7 @@
       const elN = document.getElementById('brain-neural'); if (elN) elN.textContent = `root: ${d.root_cause}`;
       const elL = document.getElementById('brain-lit'); if (elL && d.literature_fact) elL.textContent = d.literature_fact.slice(0,35)+'...';
     } catch(e) {
-      ideLog('✗ /cognitive/adjust failed — restart server with updated main.py', 'error');
+      ideLog('✗ cognitive adjust failed — restart server with updated main.py', 'error');
     }
   }
 
@@ -1383,8 +1383,7 @@
         ideLog('--------------------------------', 'muted');
         ideLog(result, 'success');
         ideLog('--------------------------------', 'muted');
-        var m = result.match(/```(?:\w+)?
-([\s\S]*?)```/);
+        var m = result.match(/```(?:\w+)?\n([\s\S]*?)```/);
         if (m) {
           document.getElementById('ide-editor').value = m[1].trim();
           ideLog('Code extracted into editor.', 'info');
@@ -1406,11 +1405,7 @@
       var r = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: 'Analyze this code concisely:
-
-```
-' + code + '
-```', instance: instance })
+        body: JSON.stringify({ message: 'Analyze this code concisely:\n\n```\n' + code + '\n```', instance: instance })
       });
       var d = await r.json();
       var result = d.response || d.text || d.content || '';
