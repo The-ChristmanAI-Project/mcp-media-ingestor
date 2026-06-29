@@ -134,6 +134,7 @@ riley_inbox: list[dict] = []
 claude_outbox: list[dict] = []
 carbon_outbox: list[dict] = []
 brockston_outbox: list[dict] = []
+brockston_ws_clients: set[WebSocket] = set()
 riley_bridge = RileyBridge(instance_id="instance_309")
 
 _DASHBOARD_PATH = os.path.join(os.path.dirname(__file__), "dashboard.html")
@@ -609,11 +610,37 @@ async def _websocket_nexus_handler(websocket: WebSocket, legacy: bool = False):
 
 
 # ── Brockston Agent WebSocket ─────────────────────────────────────────────────
+async def _push_brockston(entry: dict) -> None:
+    payload = {
+        "type": "message",
+        "from": entry.get("from", "bridge"),
+        "text": entry.get("text", ""),
+        "timestamp": entry.get("timestamp", datetime.now().isoformat()),
+        "session_id": entry.get("session_id", "--"),
+    }
+    dead: list[WebSocket] = []
+    for ws in list(brockston_ws_clients):
+        try:
+            await ws.send_json(payload)
+        except Exception:
+            dead.append(ws)
+    for ws in dead:
+        brockston_ws_clients.discard(ws)
+
+
+async def _queue_brockston(entry: dict, *, push: bool = True) -> dict:
+    brockston_outbox.append(entry)
+    if push:
+        await _push_brockston(entry)
+    return entry
+
+
 @app.websocket("/ws/brockston")
 async def websocket_brockston(websocket: WebSocket):
     label = "BROCKSTON"
     await websocket.accept()
-    active_connections["brockston"] = active_connections.get("brockston", 0) + 1
+    brockston_ws_clients.add(websocket)
+    active_connections["brockston"] = len(brockston_ws_clients)
     logger.info(f"⚡ {label} CONNECTED — Total: {active_connections['brockston']}")
 
     await websocket.send_json({
@@ -634,16 +661,19 @@ async def websocket_brockston(websocket: WebSocket):
                     "timestamp": datetime.now().isoformat(),
                     "session_id": data.get("session_id", "--")
                 }
-                brockston_outbox.append(entry)
+                await _queue_brockston(entry, push=False)
                 logger.info(f"[{label} → BRIDGE] {entry['text']}")
 
             elif msg_type == "heartbeat":
                 await websocket.send_json({"type": "heartbeat_ack", "timestamp": datetime.now().isoformat()})
 
     except WebSocketDisconnect:
-        active_connections["brockston"] = max(0, active_connections.get("brockston", 1) - 1)
+        brockston_ws_clients.discard(websocket)
+        active_connections["brockston"] = len(brockston_ws_clients)
         logger.info(f"⚡ {label} DISCONNECTED — Remaining: {active_connections.get('brockston', 0)}")
     except Exception as e:
+        brockston_ws_clients.discard(websocket)
+        active_connections["brockston"] = len(brockston_ws_clients)
         logger.error(f"{label} WebSocket error: {e}")
 
 
@@ -802,6 +832,16 @@ async def carbon_send(payload: dict):
     carbon_outbox.append(entry)
     return {"status": "received", "entry": entry}
 
+@app.get("/brockston/ws/status")
+async def brockston_ws_status():
+    latest = brockston_outbox[-1] if brockston_outbox else None
+    return {
+        "connected": active_connections["brockston"] > 0,
+        "clients": active_connections["brockston"],
+        "latest": latest,
+    }
+
+
 @app.get("/brockston/ws/latest")
 async def brockston_ws_latest():
     return brockston_outbox[-1] if brockston_outbox else {
@@ -814,12 +854,12 @@ async def brockston_ws_latest():
 @app.post("/brockston/ws/send")
 async def brockston_ws_send(payload: dict):
     entry = {
-        "from": "brockston_agent",
+        "from": payload.get("from", "bridge"),
         "text": payload.get("text", ""),
         "timestamp": datetime.now().isoformat(),
         "session_id": payload.get("session_id", "--"),
     }
-    brockston_outbox.append(entry)
+    await _queue_brockston(entry)
     return {"status": "received", "entry": entry}
 
 # ── IDE Broadcast — sends to everybody in the room ───────────────────────────
@@ -842,7 +882,7 @@ async def ide_send(payload: dict):
     riley_inbox.append({"from": "ide", "text": text, "lang": lang, "timestamp": ts})
     claude_outbox.append(broadcast_entry)
     carbon_outbox.append({**broadcast_entry, "session_id": "ide"})
-    brockston_outbox.append({**broadcast_entry, "session_id": "ide"})
+    await _queue_brockston({**broadcast_entry, "session_id": "ide"})
     yorkie_inbox.append({"from": "ide", "text": text, "lang": lang, "timestamp": ts})
 
     logger.info(f"[IDE BROADCAST ALL] [{lang}] {text[:80]}")
@@ -1003,7 +1043,7 @@ async def cognitive_adjust(payload: dict):
     event = {"from": "🧠 AlphaVox New World Brain", "text": f"NEW WORLD ADJUST: {prompt[:40]}... Root:{root_cause} (conf {conf:.2f}). {autonomous_note}", "timestamp": datetime.now().isoformat()}
     claude_outbox.append(event)
     carbon_outbox.append(event)
-    brockston_outbox.append(event)
+    await _queue_brockston(event)
     if 'yorkie_inbox' in globals(): yorkie_inbox.append(event)
     brain_events.append({"type": "adjustment", "text": event["text"], "timestamp": event["timestamp"]})
 

@@ -773,7 +773,7 @@
       <div class="agent-status" id="brockston-card-status">OFFLINE</div>
       <div class="brockston-channel">
         <div class="brockston-label">Latest from Brockston</div>
-        <div class="brockston-inbox" id="brockston-inbox-display">Awaiting WebSocket link...</div>
+        <div class="brockston-inbox" id="brockston-inbox-display">Waiting for WebSocket...</div>
         <div class="instance-badge" style="color: var(--amber);">
           <div class="dot dead" id="brockston-session-dot"></div>
           <span id="brockston-session-label">--</span>
@@ -1090,22 +1090,28 @@
     } catch(e) {}
   }
 
+  function brockstonPlaceholder(connected) {
+    return connected ? 'WebSocket link live — standing by.' : 'Waiting for WebSocket...';
+  }
+
   async function pollBrockston() {
     try {
-      const hr = await fetch('/health');
-      const h = await hr.json();
-      const connected = (h.brockston_clients || 0) > 0;
+      const r = await fetch('/brockston/ws/status');
+      const s = await r.json();
+      const connected = !!s.connected;
+      const clients = s.clients || 0;
 
       const dot = document.getElementById('brockston-dot');
       if (dot) dot.className = connected ? 'dot alive' : 'dot dead';
       const stat = document.getElementById('stat-brockston');
-      if (stat) stat.textContent = h.brockston_clients || 0;
+      if (stat) stat.textContent = clients;
 
       const ring = document.getElementById('brockston-ring');
       const card = document.getElementById('brockston-card');
       const status = document.getElementById('brockston-card-status');
       const sessionDot = document.getElementById('brockston-session-dot');
       const sessionLabel = document.getElementById('brockston-session-label');
+      const inbox = document.getElementById('brockston-inbox-display');
 
       if (connected) {
         if (ring) ring.classList.add('connected');
@@ -1123,27 +1129,30 @@
         if (status) status.textContent = 'OFFLINE';
         if (sessionDot) sessionDot.className = 'dot dead';
         if (sessionLabel) sessionLabel.textContent = '--';
+        if (inbox) inbox.textContent = brockstonPlaceholder(false);
         brockstonWasOnline = false;
+        lastBrockston = '';
+        return;
       }
 
-      const r = await fetch('/brockston/ws/latest');
-      const d = await r.json();
-      const text = (d.text || '').trim();
-      if (text && text !== lastBrockston && text !== 'Awaiting session...') {
-        lastBrockston = text;
-        const inbox = document.getElementById('brockston-inbox-display');
-        if (inbox) inbox.textContent = text;
-        if (ring) ring.classList.add('speaking');
-        if (card) card.classList.add('active');
-        if (status) status.textContent = 'SPEAKING';
-        setTimeout(() => {
-          if (ring) ring.classList.remove('speaking');
-          if (connected) {
-            if (card) card.classList.add('active');
+      const latest = s.latest || {};
+      const text = (latest.text || '').trim();
+      if (text && text !== 'Awaiting session...') {
+        if (text !== lastBrockston) {
+          lastBrockston = text;
+          if (inbox) inbox.textContent = text;
+          if (ring) ring.classList.add('speaking');
+          if (status) status.textContent = 'SPEAKING';
+          addLog('Brockston · Sovereign Stack', text, 'brockston');
+          setTimeout(() => {
+            if (ring) ring.classList.remove('speaking');
             if (status) status.textContent = 'ONLINE';
-          }
-        }, 4000);
-        addLog('Brockston · Sovereign Stack', text, 'brockston');
+          }, 4000);
+        } else if (inbox && (inbox.textContent === 'Waiting for WebSocket...' || inbox.textContent.includes('standing by'))) {
+          inbox.textContent = text;
+        }
+      } else if (inbox) {
+        inbox.textContent = brockstonPlaceholder(true);
       }
     } catch(e) {}
   }
