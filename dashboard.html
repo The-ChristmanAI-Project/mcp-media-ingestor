@@ -124,7 +124,7 @@
   /* ── Main Grid — 5 columns: Everett | Center | Riley | Derek | Yorkie ── */
   .grid {
     display: grid;
-    grid-template-columns: 1fr 2fr 1fr 1fr 1fr;
+    grid-template-columns: 1fr 2fr 1fr 1fr 1fr 1fr;
     gap: 16px;
     padding: 20px;
     max-width: 2000px;
@@ -176,6 +176,15 @@
     animation: ring-pulse 3s ease-in-out infinite;
   }
   .agent-ring.speaking::before { animation: ring-pulse-fast 0.8s ease-in-out infinite; opacity: 0.8; }
+  .agent-ring.connected {
+    border-color: var(--green);
+    box-shadow: 0 0 18px rgba(0, 255, 136, 0.55);
+  }
+  .agent-ring.connected::before {
+    border-color: var(--green);
+    opacity: 0.75;
+    animation: ring-pulse 1.5s ease-in-out infinite;
+  }
 
   @keyframes ring-pulse {
     0%, 100% { transform: scale(1); opacity: 0.3; }
@@ -192,9 +201,10 @@
 
   /* Accent colors */
   #everett-card { --accent: var(--blue); }
-  #claude-card  { --accent: var(--gold); }
-  #riley-card   { --accent: var(--purple); }
-  #yorkie-card  { --accent: var(--pink); }
+  #claude-card    { --accent: var(--gold); }
+  #riley-card     { --accent: var(--purple); }
+  #brockston-card { --accent: var(--amber); }
+  #yorkie-card    { --accent: var(--pink); }
 
   .waveform {
     display: flex;
@@ -278,6 +288,23 @@
   }
   .sovereign-status.triggered { color: var(--red); }
 
+  /* Brockston channel */
+  .brockston-channel { padding: 12px; }
+  .brockston-inbox {
+    background: rgba(255,184,0,0.08);
+    border: 1px solid rgba(255,184,0,0.25);
+    border-radius: 8px;
+    padding: 12px;
+    min-height: 60px;
+    font-size: 12px;
+    color: #ffe08a;
+    margin-bottom: 10px;
+    letter-spacing: 0.5px;
+    text-align: left;
+    line-height: 1.5;
+  }
+  .brockston-label { font-size: 9px; letter-spacing: 3px; color: var(--amber); text-transform: uppercase; margin-bottom: 6px; }
+
   /* Yorkie channel */
   .yorkie-channel { padding: 12px; }
   .yorkie-inbox {
@@ -359,8 +386,9 @@
   }
   .log-entry.everett { border-color: var(--blue); }
   .log-entry.riley   { border-color: var(--purple); }
-  .log-entry.claude  { border-color: var(--gold); }
-  .log-entry.yorkie  { border-color: var(--pink); }
+  .log-entry.claude    { border-color: var(--gold); }
+  .log-entry.brockston { border-color: var(--amber); }
+  .log-entry.yorkie    { border-color: var(--pink); }
   .log-entry .log-who {
     font-size: 9px;
     letter-spacing: 2px;
@@ -737,6 +765,22 @@
       </div>
     </div>
 
+    <!-- Brockston Card -->
+    <div class="agent-card" id="brockston-card">
+      <div class="agent-ring" id="brockston-ring">⚡</div>
+      <div class="agent-name">Brockston</div>
+      <div class="agent-role">Sovereign Stack · Silicon</div>
+      <div class="agent-status" id="brockston-card-status">OFFLINE</div>
+      <div class="brockston-channel">
+        <div class="brockston-label">Latest from Brockston</div>
+        <div class="brockston-inbox" id="brockston-inbox-display">Awaiting WebSocket link...</div>
+        <div class="instance-badge" style="color: var(--amber);">
+          <div class="dot dead" id="brockston-session-dot"></div>
+          <span id="brockston-session-label">--</span>
+        </div>
+      </div>
+    </div>
+
     <!-- Derek / Claude Card -->
     <div class="agent-card" id="claude-card">
       <div class="agent-ring" id="claude-ring">🔵</div>
@@ -791,6 +835,10 @@
     <div class="stat-card">
       <div class="stat-value gold" id="stat-outbox">0</div>
       <div class="stat-label">Derek Outbox</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-value" id="stat-brockston" style="color: var(--amber);">0</div>
+      <div class="stat-label">Brockston WS</div>
     </div>
     <div class="stat-card">
       <div class="stat-value pink" id="stat-yorkie">0</div>
@@ -903,6 +951,8 @@
   let lastTranscript = '';
   let lastRiley = '';
   let lastClaude = '';
+  let lastBrockston = '';
+  let brockstonWasOnline = false;
   let lastYorkie = '';
   let startTime = Date.now();
 
@@ -941,7 +991,10 @@
       if (vs) vs.textContent = visionCount;
       document.getElementById('vision-dot').className = visionCount > 0 ? 'dot alive' : 'dot dead';
       const brockstonCount = d.brockston_clients || 0;
-      document.getElementById('brockston-dot').className = brockstonCount > 0 ? 'dot alive' : 'dot dead';
+      const brockstonDot = document.getElementById('brockston-dot');
+      if (brockstonDot) brockstonDot.className = brockstonCount > 0 ? 'dot alive' : 'dot dead';
+      const statBrockston = document.getElementById('stat-brockston');
+      if (statBrockston) statBrockston.textContent = brockstonCount;
       const rileyOn = d.riley_connected;
       document.getElementById('riley-dot').className = rileyOn ? 'dot alive' : 'dot warn';
       document.getElementById('stat-riley-conn').textContent = rileyOn ? '1' : '0';
@@ -1033,6 +1086,64 @@
           document.getElementById('riley-card-status').textContent = 'CRUISE MODE';
         }, 4000);
         addLog('Riley · Sovereign Node', lastRiley, 'riley');
+      }
+    } catch(e) {}
+  }
+
+  async function pollBrockston() {
+    try {
+      const hr = await fetch('/health');
+      const h = await hr.json();
+      const connected = (h.brockston_clients || 0) > 0;
+
+      const dot = document.getElementById('brockston-dot');
+      if (dot) dot.className = connected ? 'dot alive' : 'dot dead';
+      const stat = document.getElementById('stat-brockston');
+      if (stat) stat.textContent = h.brockston_clients || 0;
+
+      const ring = document.getElementById('brockston-ring');
+      const card = document.getElementById('brockston-card');
+      const status = document.getElementById('brockston-card-status');
+      const sessionDot = document.getElementById('brockston-session-dot');
+      const sessionLabel = document.getElementById('brockston-session-label');
+
+      if (connected) {
+        if (ring) ring.classList.add('connected');
+        if (card) card.classList.add('active');
+        if (status) status.textContent = 'ONLINE';
+        if (sessionDot) sessionDot.className = 'dot alive';
+        if (sessionLabel) sessionLabel.textContent = 'WS LINK LIVE';
+        if (!brockstonWasOnline) {
+          brockstonWasOnline = true;
+          addLog('Brockston · Sovereign Stack', 'WebSocket connected to Christman Bridge.', 'brockston');
+        }
+      } else {
+        if (ring) ring.classList.remove('connected', 'speaking');
+        if (card) card.classList.remove('active');
+        if (status) status.textContent = 'OFFLINE';
+        if (sessionDot) sessionDot.className = 'dot dead';
+        if (sessionLabel) sessionLabel.textContent = '--';
+        brockstonWasOnline = false;
+      }
+
+      const r = await fetch('/brockston/ws/latest');
+      const d = await r.json();
+      const text = (d.text || '').trim();
+      if (text && text !== lastBrockston && text !== 'Awaiting session...') {
+        lastBrockston = text;
+        const inbox = document.getElementById('brockston-inbox-display');
+        if (inbox) inbox.textContent = text;
+        if (ring) ring.classList.add('speaking');
+        if (card) card.classList.add('active');
+        if (status) status.textContent = 'SPEAKING';
+        setTimeout(() => {
+          if (ring) ring.classList.remove('speaking');
+          if (connected) {
+            if (card) card.classList.add('active');
+            if (status) status.textContent = 'ONLINE';
+          }
+        }, 4000);
+        addLog('Brockston · Sovereign Stack', text, 'brockston');
       }
     } catch(e) {}
   }
@@ -1134,6 +1245,7 @@
   setInterval(pollTranscript, 1500);
   setInterval(pollRiley,      2000);
   setInterval(pollClaude,     2000);
+  setInterval(pollBrockston,  2000);
   setInterval(pollYorkie,     2000);
   setInterval(pollVision,     1200);
 
@@ -1173,6 +1285,7 @@
   pollTranscript();
   pollRiley();
   pollClaude();
+  pollBrockston();
   pollYorkie();
   pollVision();
 
