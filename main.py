@@ -5,6 +5,7 @@ import logging
 import os
 import sys
 import threading
+from contextlib import asynccontextmanager
 from datetime import datetime
 from pathlib import Path
 from typing import AsyncGenerator, Dict, Optional
@@ -323,14 +324,18 @@ def make_image_content_from_b64(b64: str, fmt: str = "JPEG") -> ImageContent:
 mcp = FastMCP("mcp-media-ingestor")
 mcp_app = mcp.http_app(path="/mcp")
 
-app = FastAPI(title="Christman Full Sensory Bridge", lifespan=mcp_app.lifespan)
-app.mount("/mcp", mcp_app)
 
-
-@app.on_event("startup")
-async def _bridge_startup() -> None:
+@asynccontextmanager
+async def bridge_lifespan(application: FastAPI):
+    """Chain MCP lifespan and kick off Whisper load after uvicorn binds."""
     start_whisper_background()
-    logger.info("Christman Bridge startup — Whisper loading in background")
+    logger.info("Christman Bridge lifespan — Whisper loading in background")
+    async with mcp_app.lifespan(application):
+        yield
+
+
+app = FastAPI(title="Christman Full Sensory Bridge", lifespan=bridge_lifespan)
+app.mount("/mcp", mcp_app)
 
 # ── Mount Derek's bridge router ───────────────────────────────────────────────
 if _DEREK_BRIDGE_AVAILABLE:
@@ -1625,6 +1630,8 @@ loadQueue();
 
 if __name__ == "__main__":
     import uvicorn
+
+    logger.info("Starting Christman Bridge on :8765")
     uvicorn.run(app, host="0.0.0.0", port=8765, log_level="info")
 
 import requests as _requests
