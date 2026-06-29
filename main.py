@@ -22,6 +22,8 @@ def ensure_single_instance():
 
 ensure_single_instance()
 
+logging.basicConfig(level=logging.INFO, format="%(asctime)s [bridge] %(message)s")
+
 import numpy as np
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, BackgroundTasks
 from fastapi.responses import HTMLResponse
@@ -71,6 +73,7 @@ _whisper_model = None
 _whisper_loading = False
 _whisper_ready = False
 _whisper_error: Optional[str] = None
+_whisper_started_at: Optional[str] = None
 _whisper_lock = threading.Lock()
 WHISPER_MODEL_NAME = os.getenv("WHISPER_MODEL", "small")
 WHISPER_DEVICE = os.getenv("WHISPER_DEVICE", "cpu")
@@ -83,6 +86,7 @@ def _load_whisper() -> None:
         if _whisper_ready or _whisper_loading:
             return
         _whisper_loading = True
+        _whisper_started_at = datetime.now().isoformat()
     try:
         from faster_whisper import WhisperModel
 
@@ -117,6 +121,7 @@ def whisper_status() -> dict:
         "loading": _whisper_loading,
         "error": _whisper_error,
         "model": WHISPER_MODEL_NAME,
+        "started_at": _whisper_started_at,
     }
 
 active_connections: Dict[str, int] = {"mic": 0, "riley": 0, "vision": 0, "carbon": 0}
@@ -326,10 +331,6 @@ app.mount("/mcp", mcp_app)
 async def _bridge_startup() -> None:
     start_whisper_background()
     logger.info("Christman Bridge startup — Whisper loading in background")
-
-
-# Start Whisper load as soon as the app object exists (parallel with uvicorn bind).
-start_whisper_background()
 
 # ── Mount Derek's bridge router ───────────────────────────────────────────────
 if _DEREK_BRIDGE_AVAILABLE:
