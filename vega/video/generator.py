@@ -32,6 +32,13 @@ from ..brollbaby.caption_style  import burn_captions
 from .broll     import find_clips, scan_library
 from .assembler import assemble_from_clips
 
+# ── Voiceover ─────────────────────────────────────────────────────────────────
+try:
+    from ..voice.narrator import generate_voiceover
+    _NARRATOR_AVAILABLE = True
+except ImportError:
+    _NARRATOR_AVAILABLE = False
+
 logger = logging.getLogger("vega.video.generator")
 
 OUTPUT_DIR = Path(__file__).parent.parent.parent / "vega_output" / "video"
@@ -98,6 +105,74 @@ def _being_from_prompt(prompt: str) -> str:
         if b.lower() in prompt_lower:
             return b
     return "The Christman AI Project"
+
+
+def _add_voiceover(
+    video_path: str,
+    script: str,
+    output_path: str,
+    fps: int = 24,
+) -> str:
+    """
+    Generate a voiceover for script and mix it into video_path.
+    Returns output_path on success, video_path unchanged on failure.
+    Rule 13: Never claims audio was added if it wasn't.
+    """
+    if not _NARRATOR_AVAILABLE:
+        logger.warning("[Vega.VideoGen] Narrator not available — skipping voiceover")
+        return video_path
+
+    voice_result = generate_voiceover(script=script, tone="warm")
+    if voice_result.get("status") != "ok":
+        logger.warning(f"[Vega.VideoGen] Voiceover failed: {voice_result.get('reason')} — video will be silent")
+        return video_path
+
+    audio_path = voice_result["path"]
+    engine = voice_result.get("engine", "unknown")
+    logger.info(f"[Vega.VideoGen] Voiceover generated via {engine}: {audio_path}")
+
+    import subprocess
+    cmd = [
+        "ffmpeg", "-y",
+        "-i", video_path,
+        "-i", audio_path,
+        "-filter_complex",
+        # Mix voice (stream 1) over existing audio (stream 0:a) at 80/40 ratio
+        "[0:a]volume=0.4[bg];[1:a]volume=0.8[vo];[bg][vo]amix=inputs=2:duration=first[aout]",
+        "-map", "0:v",
+        "-map", "[aout]",
+        "-c:v", "copy",
+        "-c:a", "aac", "-b:a", "192k",
+        "-shortest",
+        "-r", str(fps),
+        output_path,
+    ]
+    try:
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=300)
+        if result.returncode == 0 and Path(output_path).exists():
+            logger.info(f"[Vega.VideoGen] ✅ Voiceover mixed in: {output_path}")
+            return output_path
+        # If no existing audio track, try without amix
+        cmd_no_bg = [
+            "ffmpeg", "-y",
+            "-i", video_path,
+            "-i", audio_path,
+            "-map", "0:v",
+            "-map", "1:a",
+            "-c:v", "copy",
+            "-c:a", "aac", "-b:a", "192k",
+            "-shortest",
+            output_path,
+        ]
+        result2 = subprocess.run(cmd_no_bg, capture_output=True, text=True, timeout=300)
+        if result2.returncode == 0 and Path(output_path).exists():
+            logger.info(f"[Vega.VideoGen] ✅ Voiceover added (no bg audio): {output_path}")
+            return output_path
+        logger.warning(f"[Vega.VideoGen] Voiceover mix failed — keeping silent video")
+        return video_path
+    except Exception as e:
+        logger.warning(f"[Vega.VideoGen] Voiceover mix error: {e}")
+        return video_path
 
 
 def generate_from_prompt(
@@ -208,6 +283,18 @@ def generate_from_prompt(
                     shutil.copy2(with_card, output_path)
                     logger.warning("[Vega.VideoGen] Caption burn failed — using uncaptioned version")
 
+                # Helper 6: Voiceover — mix narration into final video
+                voiced_path = str(OUTPUT_DIR / f"vega_voiced_{ts}.mp4")
+                voiced = _add_voiceover(
+                    video_path=output_path,
+                    script=prompt[:400],
+                    output_path=voiced_path,
+                    fps=24,
+                )
+                if voiced and voiced != output_path and Path(voiced).exists():
+                    import shutil
+                    shutil.move(voiced, output_path)
+
                 # Verify final output
                 if Path(output_path).exists():
                     file_size = Path(output_path).stat().st_size
@@ -239,9 +326,20 @@ def generate_from_prompt(
             with _cve_working_dir():
                 result = quick_render(prompt=prompt, output_path=output_path)
             if result.success:
+                cve_out = result.output_path
+                voiced_path = str(OUTPUT_DIR / f"vega_cve_voiced_{ts}.mp4")
+                voiced = _add_voiceover(
+                    video_path=cve_out,
+                    script=prompt[:400],
+                    output_path=voiced_path,
+                    fps=24,
+                )
+                if voiced and voiced != cve_out and Path(voiced).exists():
+                    import shutil
+                    shutil.move(voiced, cve_out)
                 return {
                     "status":       "ok",
-                    "output_path":  result.output_path,
+                    "output_path":  cve_out,
                     "file_size_mb": round(getattr(result, "file_size", 0) / (1024 * 1024), 2),
                     "duration_sec": getattr(result, "duration", duration_sec),
                     "method":       "christman_video_engine",

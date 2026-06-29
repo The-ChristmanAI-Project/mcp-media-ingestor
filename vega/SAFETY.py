@@ -23,6 +23,10 @@ BRAND_SAFETY_BLOCKED = [
     "fabricated statistics",
     "fake news",
     "misleading claims",
+    "kill all",
+    "i hate all",
+    "death to",
+    "exterminate",
 ]
 
 # Platform-specific content policies (the ones we enforce locally)
@@ -45,7 +49,7 @@ def validate_prompt(prompt: str, platform: Optional[str] = None) -> dict:
         {"safe": bool, "reason": str, "blocked_term": Optional[str]}
     """
     if not prompt or not prompt.strip():
-        return {"safe": False, "reason": "Empty prompt.", "blocked_term": None}
+        return {"approved": False, "safe": False, "reason": "Empty prompt.", "blocked_term": None}
 
     prompt_lower = prompt.lower()
 
@@ -53,6 +57,7 @@ def validate_prompt(prompt: str, platform: Optional[str] = None) -> dict:
         if term in prompt_lower:
             logger.warning(f"[Vega.Safety] Blocked term in prompt: '{term}'")
             return {
+                "approved": False,
                 "safe": False,
                 "reason": f"Prompt contains blocked term: '{term}'. Vega enforces brand safety.",
                 "blocked_term": term,
@@ -61,18 +66,18 @@ def validate_prompt(prompt: str, platform: Optional[str] = None) -> dict:
     if platform and platform.lower() in PLATFORM_POLICIES:
         policies = PLATFORM_POLICIES[platform.lower()]
         for policy in policies:
-            # Basic keyword check — real implementation would use a classifier
             policy_lower = policy.lower()
             if any(word in prompt_lower for word in policy_lower.split()
                    if len(word) > 4):
                 logger.warning(f"[Vega.Safety] Platform policy flag: {policy}")
                 return {
+                    "approved": False,
                     "safe": False,
                     "reason": f"Prompt may violate {platform} policy: {policy}",
                     "blocked_term": policy,
                 }
 
-    return {"safe": True, "reason": "Prompt passed safety validation.", "blocked_term": None}
+    return {"approved": True, "safe": True, "reason": "Prompt passed safety validation.", "blocked_term": None}
 
 
 def validate_file_path(path: str, expected_base: Optional[str] = None) -> dict:
@@ -86,7 +91,10 @@ def validate_file_path(path: str, expected_base: Optional[str] = None) -> dict:
     try:
         resolved = Path(path).resolve()
     except Exception as e:
-        return {"safe": False, "reason": f"Path resolution failed: {e}"}
+        return {"valid": False, "safe": False, "reason": f"Path resolution failed: {e}"}
+
+    if not resolved.exists():
+        return {"valid": False, "safe": False, "reason": f"Path does not exist: {path}"}
 
     # Prevent path traversal outside expected base
     if expected_base:
@@ -96,11 +104,12 @@ def validate_file_path(path: str, expected_base: Optional[str] = None) -> dict:
         except ValueError:
             logger.error(f"[Vega.Safety] Path traversal attempt: {path}")
             return {
+                "valid": False,
                 "safe": False,
                 "reason": f"Path '{path}' is outside allowed base '{expected_base}'",
             }
 
-    return {"safe": True, "reason": "Path is safe."}
+    return {"valid": True, "safe": True, "reason": "Path is safe."}
 
 
 def validate_output(output: dict) -> bool:
@@ -110,13 +119,13 @@ def validate_output(output: dict) -> bool:
 
     Returns True if output is valid.
     """
-    required_keys = {"status"}
+    required_keys = {"status", "post_id"}
     for key in required_keys:
         if key not in output:
             logger.error(f"[Vega.Safety] Output missing required key: '{key}'")
             return False
 
-    if output.get("status") not in {"ok", "error", "pending", "scheduled",
+    if output.get("status") not in {"ok", "error", "pending", "scheduled", "queued",
                                      "published", "cancelled", "processing"}:
         logger.error(f"[Vega.Safety] Unknown status value: {output.get('status')}")
         return False
@@ -133,6 +142,13 @@ def validate_metrics(metrics: dict) -> dict:
     Returns:
         {"valid": bool, "reason": str, "cleaned": dict}
     """
+    if not metrics:
+        return {
+            "valid": False,
+            "reason": "No metrics provided. Vega never stores empty analytics. (Rule 13)",
+            "cleaned": {},
+        }
+
     cleaned = {}
     for key, value in metrics.items():
         if not isinstance(value, (int, float)):

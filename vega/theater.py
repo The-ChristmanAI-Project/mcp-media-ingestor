@@ -7,7 +7,7 @@ Rule 13: Only shows real files that exist on disk. Never fakes content.
 Rule 1: Videos are actually playable. Approval is actually recorded.
 
 Usage:
-    cd /Users/EverettN/mcp-media-ingestor
+    cd /Users/EverettN/vega
     python3 -m vega.theater
 
 Author: Everett Christman / The Christman AI Project
@@ -25,9 +25,9 @@ from flask import Flask, jsonify, request, send_file, send_from_directory
 
 logger = logging.getLogger("vega.theater")
 
-VIDEO_DIR  = Path("/Users/EverettN/mcp-media-ingestor/vega_output/video")
-POSTS_FILE = Path("/Users/EverettN/mcp-media-ingestor/vega/data/posts.json")
-APPROVED_FILE = Path("/Users/EverettN/mcp-media-ingestor/vega/data/approved.json")
+VIDEO_DIR  = Path("/Users/EverettN/vega/vega_output/video")
+POSTS_FILE = Path("/Users/EverettN/vega/vega/data/posts.json")
+APPROVED_FILE = Path("/Users/EverettN/vega/vega/data/approved.json")
 
 app = Flask(__name__, static_folder=None)
 

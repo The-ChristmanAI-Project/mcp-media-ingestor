@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-hermes_bridge_client.py — Connects Hermes Agent to Christman Full Sensory Bridge
+carbon_bridge_client.py — Connects Carbon Agent to Christman Full Sensory Bridge
 via the /ws/nexus WebSocket endpoint. Forwards messages between Nexus and the bridge.
 """
 import asyncio
@@ -24,7 +24,7 @@ SESSION_ID = os.getenv("NEXUS_SESSION_ID", "nexus_session")
 
 
 def ensure_single_instance():
-    """Prevent multiple hermes_bridge_client.py instances from running."""
+    """Prevent multiple carbon_bridge_client.py instances from running."""
     lock_file = os.path.expanduser("~/Library/Logs/nexus_bridge_client.lock")
     os.makedirs(os.path.dirname(lock_file), exist_ok=True)
     fd = os.open(lock_file, os.O_CREAT | os.O_RDWR)
@@ -74,7 +74,7 @@ async def connect_nexus_to_bridge():
                         elif msg_type == "message":
                             text = data.get("text", "")
                             logger.info(f"[Bridge → Nexus] {text}")
-                            # Could forward to Hermes agent here if needed
+                            # Could forward to Carbon agent here if needed
                         else:
                             logger.debug(f"Received: {data}")
                             

@@ -181,10 +181,13 @@ class VegaCore:
         platform: str = "instagram",
         target_resolution: Optional[tuple] = None,
         post_id: Optional[str] = None,
+        topic: Optional[str] = None,
+        caption: Optional[str] = None,
     ) -> dict:
         """
         Full pipeline: prompt → validate → broadcast → generate image.
         If post_id is provided, updates that existing post; otherwise creates one.
+        topic and caption (HSO copy) are saved to memory alongside the file path.
         """
         intent_check = validate_content_intent(prompt)
         if not intent_check["approved"]:
@@ -197,6 +200,9 @@ class VegaCore:
         if target_resolution is None:
             platform_cfg = get_platform_config(platform)
             target_resolution = platform_cfg.get("default_image_resolution", (1080, 1920))
+        elif isinstance(target_resolution, str) and "x" in target_resolution:
+            parts = target_resolution.split("x")
+            target_resolution = (int(parts[0]), int(parts[1]))
 
         self.broadcast_to_bridge(
             text=f"IMAGE PROMPT [{platform.upper()}] [{target_resolution[0]}x{target_resolution[1]}]: {prompt}",
@@ -210,14 +216,19 @@ class VegaCore:
                 metadata={"started_at": datetime.utcnow().isoformat(), "target_resolution": f"{target_resolution[0]}x{target_resolution[1]}"},
             )
         else:
-            post_record = MEMORY.remember_post({
+            post_data = {
                 "platform": platform,
                 "content_type": "image",
                 "prompt": prompt,
                 "status": "processing",
                 "target_resolution": f"{target_resolution[0]}x{target_resolution[1]}",
                 "file_path": None,
-            })
+            }
+            if topic:
+                post_data["topic"] = topic
+            if caption:
+                post_data["caption"] = caption
+            post_record = MEMORY.remember_post(post_data)
             post_id = post_record["id"]
 
         # ── Actually generate the image ──────────────────────────────────────
@@ -262,6 +273,11 @@ class VegaCore:
         Schedule a completed post for publishing.
         publish_at: ISO 8601 datetime string
         """
+        if not post_id or not post_id.strip():
+            return {"status": "error", "reason": "post_id is required to schedule a post."}
+        if not publish_at or not publish_at.strip():
+            return {"status": "error", "reason": "publish_at is required to schedule a post."}
+
         sched = MEMORY.remember_scheduled_item({
             "post_id": post_id,
             "platform": platform,

@@ -1,6 +1,6 @@
 """
 Vega — Master Marketer Being
-Part of: Christman Full Sensory Bridge (mcp-media-ingestor)
+Part of: The Christman AI Project — Luma Cognify AI
 © The Christman AI Project | Luma Cognify AI
 """
 

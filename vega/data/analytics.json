@@ -14,5 +14,97 @@
       "comments": 30
     },
     "recorded_at": "2026-06-23T21:58:38.803147"
+  },
+  {
+    "post_id": "post_001",
+    "platform": "instagram",
+    "metrics": {},
+    "recorded_at": "2026-06-25T19:54:09.596210"
+  },
+  {
+    "post_id": "post_001",
+    "platform": "instagram",
+    "metrics": {
+      "views": 10000,
+      "likes": 500,
+      "comments": 30
+    },
+    "recorded_at": "2026-06-25T19:54:09.605212"
+  },
+  {
+    "post_id": "post_001",
+    "platform": "instagram",
+    "metrics": {},
+    "recorded_at": "2026-06-25T19:58:02.315203"
+  },
+  {
+    "post_id": "post_001",
+    "platform": "instagram",
+    "metrics": {
+      "views": 10000,
+      "likes": 500,
+      "comments": 30
+    },
+    "recorded_at": "2026-06-25T19:58:02.324165"
+  },
+  {
+    "post_id": "post_001",
+    "platform": "instagram",
+    "metrics": {
+      "views": 10000,
+      "likes": 500,
+      "comments": 30
+    },
+    "recorded_at": "2026-06-25T20:00:06.788895"
+  },
+  {
+    "post_id": "post_001",
+    "platform": "instagram",
+    "metrics": {
+      "views": 10000,
+      "likes": 500,
+      "comments": 30
+    },
+    "recorded_at": "2026-06-25T20:00:14.457009"
+  },
+  {
+    "post_id": "post_001",
+    "platform": "instagram",
+    "metrics": {
+      "views": 10000,
+      "likes": 500,
+      "comments": 30
+    },
+    "recorded_at": "2026-06-25T20:01:42.538165"
+  },
+  {
+    "post_id": "post_001",
+    "platform": "instagram",
+    "metrics": {
+      "views": 10000,
+      "likes": 500,
+      "comments": 30
+    },
+    "recorded_at": "2026-06-25T20:02:24.131256"
+  },
+  {
+    "post_id": "post_001",
+    "platform": "instagram",
+    "metrics": {
+      "views": 10000,
+      "likes": 500,
+      "comments": 30
+    },
+    "recorded_at": "2026-06-25T20:17:08.570289"
+  },
+  {
+    "post_id": "post_001",
+    "platform": "instagram",
+    "metrics": {
+      "views": 10000,
+      "likes": 500,
+      "comments": 30
+    },
+    "recorded_at": "2026-06-25T20:28:15.257413"
   }
 ]

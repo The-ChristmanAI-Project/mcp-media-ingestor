@@ -1,0 +1,60 @@
+{
+  "queue_size": 0,
+  "currently_rendering": null,
+  "completed": [
+    {
+      "post_id": "post_00129",
+      "status": "ok",
+      "method": "broll_baby",
+      "output_path": "/Users/EverettN/mcp-media-ingestor/vega_output/video/vega_x_20260624_022941.mp4",
+      "platform": "x",
+      "prompt": "make me a video using the recent footage",
+      "attempts": 1,
+      "completed_at": "2026-06-24T02:30:09.432512"
+    },
+    {
+      "post_id": "post_00128",
+      "status": "ok",
+      "method": "broll_baby",
+      "output_path": "/Users/EverettN/mcp-media-ingestor/vega_output/video/vega_x_20260624_022856.mp4",
+      "platform": "x",
+      "prompt": "make me a video using the recent footage",
+      "attempts": 1,
+      "completed_at": "2026-06-24T02:29:41.693564"
+    },
+    {
+      "post_id": "post_00130",
+      "status": "ok",
+      "method": "broll_baby",
+      "output_path": "/Users/EverettN/mcp-media-ingestor/vega_output/video/vega_x_20260624_005817.mp4",
+      "platform": "x",
+      "prompt": "make me a video using the recent footage",
+      "attempts": 1,
+      "completed_at": "2026-06-24T00:58:45.872235"
+    },
+    {
+      "post_id": "post_00129",
+      "status": "ok",
+      "method": "broll_baby",
+      "output_path": "/Users/EverettN/mcp-media-ingestor/vega_output/video/vega_x_20260624_005631.mp4",
+      "platform": "x",
+      "prompt": "make me a video using the recent footage",
+      "attempts": 1,
+      "completed_at": "2026-06-24T00:56:58.596389"
+    },
+    {
+      "post_id": "post_00128",
+      "status": "ok",
+      "method": "broll_baby",
+      "output_path": "/Users/EverettN/mcp-media-ingestor/vega_output/video/vega_linkedin_20260624_005515.mp4",
+      "platform": "linkedin",
+      "prompt": "make me a video using the recent footage",
+      "attempts": 1,
+      "completed_at": "2026-06-24T00:56:31.279202"
+    }
+  ],
+  "failed": [],
+  "total_rendered": 5,
+  "total_failed": 0,
+  "updated_at": "2026-06-24T02:30:09.433135"
+}

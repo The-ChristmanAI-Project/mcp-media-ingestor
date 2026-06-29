@@ -17,12 +17,36 @@ import asyncio
 import base64
 import json
 import logging
+import os
 import signal
 import sys
 
 import numpy as np
 import sounddevice as sd
 import websockets
+
+# ── Singleton lock — prevents multiple mic_capture instances ─────────────────
+_LOCK_FILE = "/tmp/mic_capture.lock"
+
+def _acquire_singleton():
+    """Exit immediately if another mic_capture.py is already running."""
+    if os.path.exists(_LOCK_FILE):
+        try:
+            with open(_LOCK_FILE) as f:
+                pid = int(f.read().strip())
+            os.kill(pid, 0)  # signal 0 = just check existence
+            print(f"[mic_capture] Another instance already running (PID {pid}). Exiting.")
+            sys.exit(0)
+        except (ValueError, ProcessLookupError, PermissionError):
+            pass  # stale lock — proceed
+    with open(_LOCK_FILE, "w") as f:
+        f.write(str(os.getpid()))
+
+def _release_singleton():
+    try:
+        os.remove(_LOCK_FILE)
+    except FileNotFoundError:
+        pass
 
 logging.basicConfig(
     level=logging.INFO,
@@ -46,7 +70,6 @@ def mic_callback(indata: np.ndarray, frames: int, time, status):
     if status:
         logger.warning(f"Mic status: {status}")
     if audio_queue is not None:
-        # Copy to avoid mutation; prefer recent audio on backpressure (drop oldest)
         item = indata.copy()
         try:
             audio_queue.put_nowait(item)
@@ -100,7 +123,6 @@ async def main():
     global audio_queue
     audio_queue = asyncio.Queue(maxsize=200)
 
-    # Open mic stream — triggers macOS mic permission prompt on first run
     blocksize = int(SAMPLE_RATE * 0.1)  # 100ms blocks into the queue
     with sd.InputStream(
         samplerate=SAMPLE_RATE,
@@ -114,8 +136,11 @@ async def main():
 
 
 if __name__ == "__main__":
+    _acquire_singleton()
     try:
         asyncio.run(main())
     except KeyboardInterrupt:
         logger.info("Mic capture stopped.")
+    finally:
+        _release_singleton()
         sys.exit(0)
