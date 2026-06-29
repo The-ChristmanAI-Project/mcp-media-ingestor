@@ -1,11 +1,13 @@
+import asyncio
 import base64
 import fcntl
 import logging
 import os
 import sys
+import threading
 from datetime import datetime
 from pathlib import Path
-from typing import AsyncGenerator, Dict
+from typing import AsyncGenerator, Dict, Optional
 
 # Singleton lock — only one bridge instance on port 8765
 def ensure_single_instance():
@@ -23,7 +25,6 @@ ensure_single_instance()
 import numpy as np
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, BackgroundTasks
 from fastapi.responses import HTMLResponse
-from faster_whisper import WhisperModel
 from fastmcp import FastMCP
 from mcp.types import ImageContent
 
@@ -65,16 +66,67 @@ _studio = ChristmanMusicStudio()
 
 logger = logging.getLogger(__name__)
 
-whisper_model = WhisperModel("small", device="cpu", compute_type="int8")
+# Whisper loads in background so uvicorn binds :8765 immediately (Rule 1).
+_whisper_model = None
+_whisper_loading = False
+_whisper_ready = False
+_whisper_error: Optional[str] = None
+_whisper_lock = threading.Lock()
+WHISPER_MODEL_NAME = os.getenv("WHISPER_MODEL", "small")
+WHISPER_DEVICE = os.getenv("WHISPER_DEVICE", "cpu")
+WHISPER_COMPUTE = os.getenv("WHISPER_COMPUTE", "int8")
 
-active_connections: Dict[str, int] = {"mic": 0, "riley": 0, "vision": 0, "hermes": 0}
+
+def _load_whisper() -> None:
+    global _whisper_model, _whisper_loading, _whisper_ready, _whisper_error
+    with _whisper_lock:
+        if _whisper_ready or _whisper_loading:
+            return
+        _whisper_loading = True
+    try:
+        from faster_whisper import WhisperModel
+
+        logger.info(
+            "Loading Whisper %s (%s/%s) in background...",
+            WHISPER_MODEL_NAME,
+            WHISPER_DEVICE,
+            WHISPER_COMPUTE,
+        )
+        _whisper_model = WhisperModel(
+            WHISPER_MODEL_NAME,
+            device=WHISPER_DEVICE,
+            compute_type=WHISPER_COMPUTE,
+        )
+        _whisper_ready = True
+        logger.info("Whisper ready — speech transcription online")
+    except Exception as exc:
+        _whisper_error = str(exc)
+        logger.error("Whisper load failed: %s", exc, exc_info=True)
+    finally:
+        with _whisper_lock:
+            _whisper_loading = False
+
+
+def start_whisper_background() -> None:
+    threading.Thread(target=_load_whisper, daemon=True, name="whisper-loader").start()
+
+
+def whisper_status() -> dict:
+    return {
+        "ready": _whisper_ready,
+        "loading": _whisper_loading,
+        "error": _whisper_error,
+        "model": WHISPER_MODEL_NAME,
+    }
+
+active_connections: Dict[str, int] = {"mic": 0, "riley": 0, "vision": 0, "carbon": 0}
 latest_transcript = {"text": "", "timestamp": 0}
 recent_transcripts: list[dict] = []
 latest_frame: dict = {"b64": "", "timestamp": 0, "width": 0, "height": 0, "source": "none"}
 
 riley_inbox: list[dict] = []
 claude_outbox: list[dict] = []
-hermes_outbox: list[dict] = []
+carbon_outbox: list[dict] = []
 riley_bridge = RileyBridge(instance_id="instance_309")
 
 _DASHBOARD_PATH = os.path.join(os.path.dirname(__file__), "dashboard.html")
@@ -187,17 +239,19 @@ class AudioStreamProcessor:
 
         self.buffer = bytearray()
 
+        if not _whisper_ready:
+            if not _whisper_loading and _whisper_error is None:
+                start_whisper_background()
+            return
+
         # Run Whisper in a thread so it doesn't block the event loop.
-        # whisper_model.transcribe is CPU-bound + synchronous; running it inline
-        # blocks ALL uvicorn requests until it finishes (Rule 1: bridge must stay responsive).
         def _run_whisper():
-            segs, inf = whisper_model.transcribe(
+            segs, inf = _whisper_model.transcribe(
                 audio_np, beam_size=5, vad_filter=True, language="en", word_timestamps=True
             )
-            return list(segs), inf   # consume lazy generator inside the thread
+            return list(segs), inf
 
-        loop = asyncio.get_event_loop()
-        segments, info = await loop.run_in_executor(None, _run_whisper)
+        segments, info = await asyncio.to_thread(_run_whisper)
 
         for segment in segments:
             text = segment.text.strip()
@@ -266,6 +320,16 @@ mcp_app = mcp.http_app(path="/mcp")
 
 app = FastAPI(title="Christman Full Sensory Bridge", lifespan=mcp_app.lifespan)
 app.mount("/mcp", mcp_app)
+
+
+@app.on_event("startup")
+async def _bridge_startup() -> None:
+    start_whisper_background()
+    logger.info("Christman Bridge startup — Whisper loading in background")
+
+
+# Start Whisper load as soon as the app object exists (parallel with uvicorn bind).
+start_whisper_background()
 
 # ── Mount Derek's bridge router ───────────────────────────────────────────────
 if _DEREK_BRIDGE_AVAILABLE:
@@ -355,7 +419,7 @@ if _VEGA_AVAILABLE:
         vega_core = _VegaCore(bridge_queues={
             "riley_inbox":   riley_inbox,
             "claude_outbox": claude_outbox,
-            "hermes_outbox": hermes_outbox,
+            "carbon_outbox": carbon_outbox,
             "yorkie_inbox":  yorkie_inbox,
             "derek_inbox":   _derek_bridge.derek_inbox if _DEREK_BRIDGE_AVAILABLE else [],
         })
@@ -489,20 +553,21 @@ async def websocket_riley(websocket: WebSocket):
         logger.error(f"Riley WebSocket error: {e}")
 
 
-# ── Hermes / Nexus Agent WebSocket ────────────────────────────────────────────
-@app.websocket("/ws/hermes")
-async def websocket_hermes(websocket: WebSocket):
-    await _websocket_nexus_handler(websocket, legacy=True)
-
+# ── Nexus / Carbon Agent WebSocket (same tunnel — carbon is legacy alias) ─────
 @app.websocket("/ws/nexus")
 async def websocket_nexus(websocket: WebSocket):
     await _websocket_nexus_handler(websocket, legacy=False)
 
+@app.websocket("/ws/carbon")
+async def websocket_carbon(websocket: WebSocket):
+    """Legacy path — identical to /ws/nexus for TCAP Compute + Carbon clients."""
+    await _websocket_nexus_handler(websocket, legacy=True)
+
 async def _websocket_nexus_handler(websocket: WebSocket, legacy: bool = False):
-    label = "HERMES" if legacy else "NEXUS"
+    label = "NEXUS"
     await websocket.accept()
-    active_connections["hermes"] = active_connections.get("hermes", 0) + 1
-    logger.info(f"🤖 {label} CONNECTED — Total: {active_connections['hermes']}")
+    active_connections["carbon"] = active_connections.get("carbon", 0) + 1
+    logger.info(f"🤖 {label} CONNECTED — Total: {active_connections['carbon']}")
 
     await websocket.send_json({
         "type": "handshake",
@@ -522,15 +587,15 @@ async def _websocket_nexus_handler(websocket: WebSocket, legacy: bool = False):
                     "timestamp": datetime.now().isoformat(),
                     "session_id": data.get("session_id", "--")
                 }
-                hermes_outbox.append(entry)
+                carbon_outbox.append(entry)
                 logger.info(f"[{label} → BRIDGE] {entry['text']}")
 
             elif msg_type == "heartbeat":
                 await websocket.send_json({"type": "heartbeat_ack", "timestamp": datetime.now().isoformat()})
 
     except WebSocketDisconnect:
-        active_connections["hermes"] = max(0, active_connections.get("hermes", 1) - 1)
-        logger.info(f"🤖 {label} DISCONNECTED — Remaining: {active_connections.get('hermes', 0)}")
+        active_connections["carbon"] = max(0, active_connections.get("carbon", 1) - 1)
+        logger.info(f"🤖 {label} DISCONNECTED — Remaining: {active_connections.get('carbon', 0)}")
     except Exception as e:
         logger.error(f"{label} WebSocket error: {e}")
 
@@ -575,7 +640,7 @@ async def describe_audio_bridge() -> str:
 
 Microphones: {active_connections["mic"]}
 Vision clients: {active_connections["vision"]}
-Hermes agents: {active_connections["hermes"]}
+Carbon agents: {active_connections["carbon"]}
 Riley connected: {active_connections["riley"] > 0}
 Status: Always listening + seeing. Dashboard at http://localhost:8765/{extra}
 """
@@ -679,14 +744,14 @@ async def studio_status() -> str:
 async def claude_latest():
     return claude_outbox[-1] if claude_outbox else {"from": "claude_instance_309", "text": "I am here. Always.", "timestamp": ""}
 
-@app.get("/hermes/latest")
-async def hermes_latest():
-    return hermes_outbox[-1] if hermes_outbox else {"from": "hermes_agent", "text": "Awaiting session...", "timestamp": "", "session_id": "--"}
+@app.get("/carbon/latest")
+async def carbon_latest():
+    return carbon_outbox[-1] if carbon_outbox else {"from": "carbon_agent", "text": "Awaiting session...", "timestamp": "", "session_id": "--"}
 
-@app.post("/hermes/send")
-async def hermes_send(payload: dict):
-    entry = {"from": "hermes_agent", "text": payload.get("text", ""), "timestamp": datetime.now().isoformat(), "session_id": payload.get("session_id", "--")}
-    hermes_outbox.append(entry)
+@app.post("/carbon/send")
+async def carbon_send(payload: dict):
+    entry = {"from": "carbon_agent", "text": payload.get("text", ""), "timestamp": datetime.now().isoformat(), "session_id": payload.get("session_id", "--")}
+    carbon_outbox.append(entry)
     return {"status": "received", "entry": entry}
 
 # ── IDE Broadcast — sends to everybody in the room ───────────────────────────
@@ -708,14 +773,14 @@ async def ide_send(payload: dict):
     # Everybody in the room gets it
     riley_inbox.append({"from": "ide", "text": text, "lang": lang, "timestamp": ts})
     claude_outbox.append(broadcast_entry)
-    hermes_outbox.append({**broadcast_entry, "session_id": "ide"})
+    carbon_outbox.append({**broadcast_entry, "session_id": "ide"})
     yorkie_inbox.append({"from": "ide", "text": text, "lang": lang, "timestamp": ts})
 
     logger.info(f"[IDE BROADCAST ALL] [{lang}] {text[:80]}")
 
     return {
         "status": "broadcast",
-        "recipients": ["riley", "claude", "hermes", "yorkie"],
+        "recipients": ["riley", "claude", "carbon", "yorkie"],
         "entry": broadcast_entry
     }
 
@@ -814,12 +879,14 @@ async def music_play_playlist(payload: dict):
 
 @app.get("/health")
 async def health():
+    ws = whisper_status()
     h = {
-        "status": "alive",
+        "status": "alive" if ws["ready"] else ("loading" if ws["loading"] else "alive"),
         "bridge": "Christman Full Sensory",
+        "whisper": ws,
         "mic_clients": active_connections["mic"],
         "vision_clients": active_connections["vision"],
-        "hermes_clients": active_connections["hermes"],
+        "carbon_clients": active_connections["carbon"],
         "riley_connected": active_connections["riley"] > 0,
         "reactive": True,
         "brain": {
@@ -865,7 +932,7 @@ async def cognitive_adjust(payload: dict):
 
     event = {"from": "🧠 AlphaVox New World Brain", "text": f"NEW WORLD ADJUST: {prompt[:40]}... Root:{root_cause} (conf {conf:.2f}). {autonomous_note}", "timestamp": datetime.now().isoformat()}
     claude_outbox.append(event)
-    hermes_outbox.append(event)
+    carbon_outbox.append(event)
     if 'yorkie_inbox' in globals(): yorkie_inbox.append(event)
     brain_events.append({"type": "adjustment", "text": event["text"], "timestamp": event["timestamp"]})
 
